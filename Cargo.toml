@@ -1,0 +1,14 @@
+[package]
+name    = "iron-vault"
+version = "0.1.0"
+authors = ["Noah Callaway <noah@apsis.io>"]
+
+[lib]
+name = "vault_core"
+path = "src/core/core.rs"
+
+[[bin]]
+name = "vault_cli"
+path = "src/cli/cli.rs"
+
+[dependencies]
