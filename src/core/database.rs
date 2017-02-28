@@ -19,26 +19,21 @@ pub fn write_database(buf: &[u8]) {
     f.write_all(buf).expect("Failed to write the provided string buffer into the database file");
 }
 
-fn determine_database_path() -> String {
-    // Database Path Resolution
-    // 1 - Not Implemented - Explicit Override
-    // 2 - Environment Variable
-    // 3 - Hardcoded Location
+fn determine_database_path(path: Option<&str>) -> String {
+    // 1 - Explicit Override Resolution
+    if path.is_some() { return String::from(path.unwrap()); }
 
-    // TODO: Explicit Override
-
-    // Fetch Environment Variable
+    // 2 - Environment Variable Resolution
     let environment_result = env::var(ENVIRONMENT_KEY);
-    if environment_result.is_ok() {
-        return environment_result.unwrap();
-    }
+    if environment_result.is_ok() { return environment_result.unwrap(); }
 
-    // Hardcoded Location
-    return format!("{}{}", env::home_dir().expect("Failed to find the home directory").display(), DEFAULT_DATABASE_PATH);
+    // 3 - Hardcoded Resolution
+    let home_dir = env::home_dir().expect("Failed to find the home directory");
+    return format!("{}{}", home_dir.display(), DEFAULT_DATABASE_PATH);
 }
 
 fn resolve_database_path() -> PathBuf {
-    let path = determine_database_path();
+    let path = determine_database_path(None);
 
     let path = PathBuf::from(&path);
 
@@ -60,14 +55,21 @@ mod test {
     fn determine_database_path_with_environment_variable() {
         test_cleanup(&|| {
             env::set_var(ENVIRONMENT_KEY, "~/test_tmp/ironvault");
-            assert_eq!(determine_database_path(), "~/test_tmp/ironvault");
+            assert_eq!(determine_database_path(None), "~/test_tmp/ironvault");
         });
     }
 
     #[test]
     fn determine_database_path_with_default_directory() {
         test_cleanup(&|| {
-            assert!(determine_database_path().ends_with("/.ironvault/database"));
+            assert!(determine_database_path(None).ends_with("/.ironvault/database"));
+        });
+    }
+
+    #[test]
+    fn determine_database_path_with_explicit_path() {
+        test_cleanup(&|| {
+            assert_eq!(determine_database_path(Some("~/.test_tmp/ironvault-explicit")), "~/.test_tmp/ironvault-explicit");
         });
     }
 
