@@ -44,8 +44,52 @@ fn resolve_database_path() -> PathBuf {
 
     match path.parent() {
         Some(parent) => create_dir_all(parent).expect("Failed to create the directory for the database"),
-        _ => ()
+        _ => panic!("The path didn't have a parent attribute.")
     }
 
     return path;
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::fs::remove_dir_all;
+    use std::path::Path;
+
+    #[test]
+    fn determine_database_path_with_environment_variable() {
+        env::set_var(ENVIRONMENT_KEY, "~/test_tmp/ironvault");
+        assert_eq!(determine_database_path(), "~/test_tmp/ironvault");
+    }
+
+    #[test]
+    fn determine_database_path_with_default_directory() {
+        env::remove_var(ENVIRONMENT_KEY);
+
+        assert!(determine_database_path().ends_with("/.ironvault/database"));
+    }
+
+    #[test]
+    fn resolve_database_path_creates_a_directory() {
+        remove_test_dir();
+        env::set_var(ENVIRONMENT_KEY, "test_dir/something/ironvault");
+
+
+        assert!( !Path::new("test_dir").is_dir() );
+        assert!( !Path::new("test_dir/something").is_dir() );
+        assert!( !Path::new("test_dir/something/ironvault").is_dir() );
+
+        let db_path = resolve_database_path();
+        println!("{}", db_path.display());
+
+        assert!( Path::new("test_dir").is_dir() );
+        assert!( Path::new("test_dir/something").is_dir() );
+        assert!( !Path::new("test_dir/something/ironvault").is_dir() );
+
+        remove_test_dir();
+    }
+
+    fn remove_test_dir() {
+        remove_dir_all("test_dir").unwrap_or(())
+    }
 }
