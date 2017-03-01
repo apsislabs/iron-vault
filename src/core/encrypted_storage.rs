@@ -67,17 +67,19 @@ fn open_data<'a>(data: &'a mut Vec<u8>,
                  key: &[u8],
                  algorithm: &'static aead::Algorithm)
                  -> &'a [u8] {
-    let key_len = algorithm.key_len();
+
     let nonce_len = algorithm.nonce_len();
+    let key_len = algorithm.key_len();
 
     let opening_key = aead::OpeningKey::new(algorithm, &key[..key_len])
         .expect("Should have generated the sealing key");
-
-    let ad: [u8; 0] = [0; 0];
-
     let nonce = data[..nonce_len].to_vec();
 
-    let plaintext = aead::open_in_place(&opening_key, &nonce, &ad[..], nonce_len, &mut data[..])
+    let plaintext = aead::open_in_place(&opening_key,
+                                        &nonce,
+                                        &empty_associated_data(),
+                                        nonce_len,
+                                        &mut data[..])
         .expect("Should have opened in place properly.");
 
     return plaintext;
@@ -87,31 +89,49 @@ fn seal_data<'a>(data: &'a mut Vec<u8>,
                  key: &[u8],
                  algorithm: &'static aead::Algorithm)
                  -> &'a [u8] {
-    let tag_len = algorithm.tag_len();
-    let key_len = algorithm.key_len();
+
     let nonce_len = algorithm.nonce_len();
+    let key_len = algorithm.key_len();
+    let tag_len = algorithm.tag_len();
 
     let sealing_key = aead::SealingKey::new(algorithm, &key[..key_len])
         .expect("Should have generated the sealing key");
+    let nonce = generate_nonce(algorithm);
 
-    let mut nonce: Vec<u8> = vec![0; nonce_len];
+    append_tag_storage(data, algorithm);
 
-    let rng = rand::SystemRandom::new();
-    rng.fill(&mut nonce).expect("Should have filled out the nonce");
+    let ciphertext_len = aead::seal_in_place(&sealing_key,
+                                             &nonce,
+                                             &empty_associated_data(),
+                                             &mut data[..],
+                                             tag_len)
+        .expect("Should have sealed in place properly");
 
-    let ad: [u8; 0] = [0; 0];
-
-    for _ in 0..tag_len {
-        data.push(0);
-    }
-
-    let ciphertext_size =
-        aead::seal_in_place(&sealing_key, &nonce, &ad[..], &mut data[..], tag_len)
-            .expect("Should have sealed in place properly");
-
+    // Push the nonce to the front of the data
     data.splice(..0, nonce);
-
-    let encrypted_len = nonce_len + ciphertext_size;
+    let encrypted_len = nonce_len + ciphertext_len;
 
     return &data[..encrypted_len];
+}
+
+fn generate_nonce(algorithm: &'static aead::Algorithm) -> Vec<u8> {
+    let nonce_len = algorithm.nonce_len();
+    let rng = rand::SystemRandom::new();
+
+    let mut nonce: Vec<u8> = vec![0; nonce_len];
+    rng.fill(&mut nonce).expect("Should have filled out the nonce");
+
+    return nonce;
+}
+
+fn empty_associated_data() -> [u8; 0] {
+    return [0; 0];
+}
+
+fn append_tag_storage(plaintext: &mut Vec<u8>, algorithm: &'static aead::Algorithm) {
+    let tag_len = algorithm.tag_len();
+
+    for _ in 0..tag_len {
+        plaintext.push(0);
+    }
 }
