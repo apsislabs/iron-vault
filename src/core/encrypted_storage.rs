@@ -10,9 +10,8 @@ use ring::rand;
 use odds::vec::VecExt;
 
 // Next steps:
-// 2. Error handling
-// 3. Unit tests
-// 4. Documentation
+// 1. Unit tests
+// 2. Documentation
 
 pub struct EncryptedStorage {
     path: path::PathBuf,

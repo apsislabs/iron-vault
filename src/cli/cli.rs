@@ -1,3 +1,6 @@
+#![feature(plugin)]
+#![cfg_attr(test, plugin(stainless))]
+
 extern crate vault_core;
 
 use vault_core::database::Database;

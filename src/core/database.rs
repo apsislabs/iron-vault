@@ -80,61 +80,54 @@ fn resolve_database_path() -> path::PathBuf {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::remove_dir_all;
-    use std::path::Path;
 
-    #[test]
-    fn determine_database_path_with_environment_variable() {
-        test_cleanup(&|| {
+    describe! determine_database_path {
+        before_each {
+            env::remove_var(ENVIRONMENT_KEY);
+        }
+
+        it "uses environment variable before hardcoded path" {
             env::set_var(ENVIRONMENT_KEY, "~/test_tmp/ironvault");
             assert_eq!(determine_database_path(None), "~/test_tmp/ironvault");
-        });
-    }
+        }
 
-    #[test]
-    fn determine_database_path_with_default_directory() {
-        test_cleanup(&|| {
-            assert!(determine_database_path(None).ends_with("/.ironvault/database"));
-        });
-    }
-
-    #[test]
-    fn determine_database_path_with_explicit_path() {
-        test_cleanup(&|| {
+        it "uses explicit path if one is provided" {
             assert_eq!(determine_database_path(Some("~/.test_tmp/ironvault-explicit")),
-                       "~/.test_tmp/ironvault-explicit");
-        });
+                                   "~/.test_tmp/ironvault-explicit");
+
+            env::set_var(ENVIRONMENT_KEY, "~/test_tmp/ironvault");
+
+            assert_eq!(determine_database_path(Some("~/.test_tmp/ironvault-explicit")),
+                                   "~/.test_tmp/ironvault-explicit");
+        }
+
+        it "uses the hardcoded path if no other form is available" {
+            assert!(determine_database_path(None).ends_with("/.ironvault/database"));
+        }
     }
 
-    #[test]
-    fn resolve_database_path_creates_a_directory() {
-        test_cleanup(&|| {
+    describe! resolve_database_path {
+        before_each {
+            env::remove_var(ENVIRONMENT_KEY);
+            remove_test_dir();
+        }
+
+        it "should create the directory if one doesn't exist" {
             env::set_var(ENVIRONMENT_KEY, "test_dir/something/ironvault");
 
-            assert!(!Path::new("test_dir").is_dir());
-            assert!(!Path::new("test_dir/something").is_dir());
-            assert!(!Path::new("test_dir/something/ironvault").is_dir());
+            assert!(!path::Path::new("test_dir").is_dir());
+            assert!(!path::Path::new("test_dir/something").is_dir());
+            assert!(!path::Path::new("test_dir/something/ironvault").is_dir());
 
-            let db_path = resolve_database_path();
+            resolve_database_path();
 
-            assert!(Path::new("test_dir").is_dir());
-            assert!(Path::new("test_dir/something").is_dir());
-            assert!(!Path::new("test_dir/something/ironvault").is_dir());
-        });
-    }
-
-    fn test_cleanup(tests_fn: &Fn()) {
-        perform_cleanup();
-        tests_fn();
-        perform_cleanup();
-    }
-
-    fn perform_cleanup() {
-        remove_test_dir();
-        env::remove_var(ENVIRONMENT_KEY);
+            assert!(path::Path::new("test_dir").is_dir());
+            assert!(path::Path::new("test_dir/something").is_dir());
+            assert!(!path::Path::new("test_dir/something/ironvault").is_dir());
+        }
     }
 
     fn remove_test_dir() {
-        remove_dir_all("test_dir").unwrap_or(())
+        fs::remove_dir_all("test_dir").unwrap_or(())
     }
 }

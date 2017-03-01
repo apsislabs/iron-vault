@@ -8,9 +8,10 @@ name = "vault_core"
 path = "src/core/core.rs"
 
 [[bin]]
-name = "vault_cli"
+name = "iv"
 path = "src/cli/cli.rs"
 
 [dependencies]
 ring = "0.7.1" # Used for core crypto
-odds = "0.2.25" # Odds and ends used for its Vector Extensions
+odds = "0.2.25" # Used for Vector Extensions
+stainless = "*" # Used for unit testing
