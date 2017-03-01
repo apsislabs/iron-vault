@@ -1,4 +1,5 @@
 use std::io::prelude::*;
+use std::io;
 use std::error;
 use std::fmt;
 use std::fs;
@@ -41,13 +42,27 @@ impl EncryptedStorage {
 pub enum StorageError {
     KeyLengthError,
     KeyError,
+    DecryptionError,
+    FileError(io::Error),
 }
 
 impl fmt::Display for StorageError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            StorageError::KeyLengthError => write!(f, "The key was not the right length for the encryption algorithm"),
-            StorageError::KeyError => write!(f, "There was a problem with the key to access the encrypted storage."),
+            StorageError::KeyLengthError => {
+                write!(f,
+                       "The key was not the right length for the encryption algorithm")
+            }
+            StorageError::KeyError => {
+                write!(f,
+                       "There was a problem with the key to access the encrypted storage.")
+            }
+            StorageError::DecryptionError => {
+                write!(f, "The encrypted data could not be decrypted.")
+            }
+            StorageError::FileError(ref err) => {
+                write!(f, "There was an error accessing the file: {}", err)
+            }
         }
     }
 }
@@ -55,13 +70,24 @@ impl fmt::Display for StorageError {
 impl error::Error for StorageError {
     fn description(&self) -> &str {
         match *self {
-            StorageError::KeyLengthError => "The key was not the right length for the encryption algorithm",
-            StorageError::KeyError => "There was a problem with the key to access the encrypted storage.",
+            StorageError::KeyLengthError => {
+                "The key was not the right length for the encryption algorithm"
+            }
+            StorageError::KeyError => {
+                "There was a problem with the key to access the encrypted storage."
+            }
+            StorageError::DecryptionError => "The encrypted data could not be decrypted.",
+            StorageError::FileError(ref err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        return None;
+        match *self {
+            StorageError::KeyLengthError => None,
+            StorageError::KeyError => None,
+            StorageError::DecryptionError => None,
+            StorageError::FileError(ref err) => Some(err),
+        }
     }
 }
 
@@ -70,11 +96,10 @@ fn read_encrypted<'a, P: AsRef<path::Path>>(path: P,
                                             key: &[u8],
                                             algorithm: &'static aead::Algorithm)
                                             -> Result<&'a [u8], StorageError> {
-    let mut f = fs::File::open(path).expect("Failed to open the database file");
+    let mut f = try!(fs::File::open(path).map_err(StorageError::FileError));
 
     buffer.clear();
-    f.read_to_end(buffer)
-        .expect("Failed to read the database file into the provided string buffer");
+    try!(f.read_to_end(buffer).map_err(StorageError::FileError));
 
     return open_data(buffer, key, algorithm);
 }
@@ -101,15 +126,16 @@ fn open_data<'a>(data: &'a mut Vec<u8>,
 
     try!(verify_key_len(algorithm, key));
 
-    let opening_key = try!(aead::OpeningKey::new(algorithm, &key).map_err(|e| StorageError::KeyError));
+    let opening_key = try!(aead::OpeningKey::new(algorithm, &key)
+        .map_err(|e| StorageError::KeyError));
     let nonce = data[..nonce_len].to_vec();
 
-    let plaintext = aead::open_in_place(&opening_key,
-                                        &nonce,
-                                        &empty_associated_data(),
-                                        nonce_len,
-                                        &mut data[..])
-        .expect("Should have opened in place properly.");
+    let plaintext = try!(aead::open_in_place(&opening_key,
+                                             &nonce,
+                                             &empty_associated_data(),
+                                             nonce_len,
+                                             &mut data[..])
+        .map_err(|e| StorageError::DecryptionError));
 
     return Ok(plaintext);
 }

@@ -33,7 +33,9 @@ impl Database {
     }
 
     pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a [u8] {
-        return &self.storage.read(buffer).expect("Should have read encrypted storage successfully.");
+        return &self.storage
+            .read(buffer)
+            .expect("Should have read encrypted storage successfully.");
     }
 
     pub fn write(&self, buffer: &[u8]) {
