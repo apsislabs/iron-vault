@@ -9,6 +9,7 @@ static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 
 pub struct Database {
+    pub path: PathBuf,
     es: EncryptedStorage,
 }
 
@@ -17,6 +18,7 @@ impl Database {
         let path = resolve_database_path();
 
         Database {
+            path: path.clone(),
             es: EncryptedStorage::new(path, key),
         }
     }

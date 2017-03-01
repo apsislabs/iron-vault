@@ -9,7 +9,8 @@ pub fn main() {
     let msg = String::from("This is a test of the encrypted storage and database mechanisms");
 
     db.write(msg.as_bytes());
-    println!("Wrote message to database: {}", msg);
+    println!("Writing to database: {}", db.path.display());
+    println!("Wrote message: {}", msg);
 
     let mut s = String::new();
     db.read_string(&mut s);
