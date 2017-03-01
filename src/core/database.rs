@@ -39,7 +39,9 @@ impl Database {
     }
 
     pub fn write(&self, buffer: &[u8]) {
-        &self.storage.write(buffer);
+        &self.storage
+            .write(buffer)
+            .expect("Should have written to encrypted storage successfully.");
     }
 }
 

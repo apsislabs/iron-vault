@@ -33,7 +33,7 @@ impl EncryptedStorage {
         return read_encrypted(&self.path, buffer, &self.key, &self.algorithm);
     }
 
-    pub fn write(&self, buffer: &[u8]) {
+    pub fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
         return write_encrypted(&self.path, buffer, &self.key, &self.algorithm);
     }
 }
@@ -42,7 +42,9 @@ impl EncryptedStorage {
 pub enum StorageError {
     KeyLengthError,
     KeyError,
+    NonceGenerationError,
     DecryptionError,
+    EncryptionError,
     FileError(io::Error),
 }
 
@@ -57,8 +59,14 @@ impl fmt::Display for StorageError {
                 write!(f,
                        "There was a problem with the key to access the encrypted storage.")
             }
+            StorageError::NonceGenerationError => {
+                write!(f, "There was a problem generating the nonce.")
+            }
             StorageError::DecryptionError => {
                 write!(f, "The encrypted data could not be decrypted.")
+            }
+            StorageError::EncryptionError => {
+                write!(f, "The plaintext data could not be encrypted.")
             }
             StorageError::FileError(ref err) => {
                 write!(f, "There was an error accessing the file: {}", err)
@@ -76,7 +84,9 @@ impl error::Error for StorageError {
             StorageError::KeyError => {
                 "There was a problem with the key to access the encrypted storage."
             }
+            StorageError::NonceGenerationError => "There was a problem geenrating the nonce.",
             StorageError::DecryptionError => "The encrypted data could not be decrypted.",
+            StorageError::EncryptionError => "The plaintext data could not be encrypted.",
             StorageError::FileError(ref err) => err.description(),
         }
     }
@@ -85,7 +95,9 @@ impl error::Error for StorageError {
         match *self {
             StorageError::KeyLengthError => None,
             StorageError::KeyError => None,
+            StorageError::NonceGenerationError => None,
             StorageError::DecryptionError => None,
+            StorageError::EncryptionError => None,
             StorageError::FileError(ref err) => Some(err),
         }
     }
@@ -107,14 +119,16 @@ fn read_encrypted<'a, P: AsRef<path::Path>>(path: P,
 fn write_encrypted<P: AsRef<path::Path>>(path: P,
                                          buf: &[u8],
                                          key: &[u8],
-                                         algorithm: &'static aead::Algorithm) {
-    let mut f = fs::File::create(path).expect("Failed to open the database file");
+                                         algorithm: &'static aead::Algorithm)
+                                         -> Result<(), StorageError> {
+    let mut f = try!(fs::File::create(path).map_err(StorageError::FileError));
     let mut data = buf.to_vec();
 
-    let ciphertext = seal_data(&mut data, key, algorithm);
+    let ciphertext = try!(seal_data(&mut data, key, algorithm));
 
-    f.write_all(ciphertext)
-        .expect("Failed to write the provided string buffer into the database file");
+    try!(f.write_all(ciphertext).map_err(StorageError::FileError));
+
+    return Ok(());
 }
 
 fn open_data<'a>(data: &'a mut Vec<u8>,
@@ -127,7 +141,7 @@ fn open_data<'a>(data: &'a mut Vec<u8>,
     try!(verify_key_len(algorithm, key));
 
     let opening_key = try!(aead::OpeningKey::new(algorithm, &key)
-        .map_err(|e| StorageError::KeyError));
+        .map_err(|_| StorageError::KeyError));
     let nonce = data[..nonce_len].to_vec();
 
     let plaintext = try!(aead::open_in_place(&opening_key,
@@ -135,7 +149,7 @@ fn open_data<'a>(data: &'a mut Vec<u8>,
                                              &empty_associated_data(),
                                              nonce_len,
                                              &mut data[..])
-        .map_err(|e| StorageError::DecryptionError));
+        .map_err(|_| StorageError::DecryptionError));
 
     return Ok(plaintext);
 }
@@ -143,48 +157,48 @@ fn open_data<'a>(data: &'a mut Vec<u8>,
 fn seal_data<'a>(data: &'a mut Vec<u8>,
                  key: &[u8],
                  algorithm: &'static aead::Algorithm)
-                 -> &'a [u8] {
+                 -> Result<&'a [u8], StorageError> {
 
     let nonce_len = algorithm.nonce_len();
-    let key_len = algorithm.key_len();
     let tag_len = algorithm.tag_len();
 
-    let sealing_key = aead::SealingKey::new(algorithm, &key[..key_len])
-        .expect("Should have generated the sealing key");
-    let nonce = generate_nonce(algorithm);
+    try!(verify_key_len(algorithm, key));
+
+    let sealing_key = try!(aead::SealingKey::new(algorithm, &key)
+        .map_err(|_| StorageError::KeyError));
+    let nonce = try!(generate_nonce(algorithm));
 
     append_tag_storage(data, algorithm);
 
-    let ciphertext_len = aead::seal_in_place(&sealing_key,
-                                             &nonce,
-                                             &empty_associated_data(),
-                                             &mut data[..],
-                                             tag_len)
-        .expect("Should have sealed in place properly");
+    let ciphertext_len = try!(aead::seal_in_place(&sealing_key,
+                                                  &nonce,
+                                                  &empty_associated_data(),
+                                                  &mut data[..],
+                                                  tag_len)
+        .map_err(|_| StorageError::EncryptionError));
 
-    // Push the nonce to the front of the data
     data.splice(..0, nonce);
     let encrypted_len = nonce_len + ciphertext_len;
 
-    return &data[..encrypted_len];
+    return Ok(&data[..encrypted_len]);
 }
 
-fn verify_key_len(algorithm: &'static aead::Algorithm, key: &[u8]) -> Result<bool, StorageError> {
+fn verify_key_len(algorithm: &'static aead::Algorithm, key: &[u8]) -> Result<(), StorageError> {
     if algorithm.key_len() != key.len() {
         return Err(StorageError::KeyLengthError);
     }
 
-    return Ok(true);
+    return Ok(());
 }
 
-fn generate_nonce(algorithm: &'static aead::Algorithm) -> Vec<u8> {
+fn generate_nonce(algorithm: &'static aead::Algorithm) -> Result<Vec<u8>, StorageError> {
     let nonce_len = algorithm.nonce_len();
     let rng = rand::SystemRandom::new();
 
     let mut nonce: Vec<u8> = vec![0; nonce_len];
-    rng.fill(&mut nonce).expect("Should have filled out the nonce");
+    try!(rng.fill(&mut nonce).map_err(|_| StorageError::NonceGenerationError));
 
-    return nonce;
+    return Ok(nonce);
 }
 
 fn empty_associated_data() -> [u8; 0] {
