@@ -1,5 +1,6 @@
 extern crate ring;
 extern crate itertools;
+extern crate odds;
 
 use std::env;
 use std::io::prelude::*;
@@ -11,7 +12,9 @@ use std::vec::Vec;
 use self::ring::aead;
 use self::ring::aead::seal_in_place;
 use self::ring::aead::open_in_place;
+use self::ring::rand::SystemRandom;
 use self::itertools::Itertools;
+use self::odds::vec::VecExt;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
@@ -80,22 +83,35 @@ fn seal_data(data: &mut Vec<u8>) -> &[u8] {
 
     let sealing_key = aead::SealingKey::new(chacha20_poly1305, &KEY[..key_len]).expect("Should have generated the sealing key");
     // TODO Generate a real nonce using SecureRandom instead of using a const nonce
+    let mut nonce: Vec<u8> = vec![0; nonce_len];
+    println!("Generated nonce of len {}, {:02x}", nonce_len, nonce.iter().format(""));
+
+    let rng = SystemRandom::new();
+    rng.fill(&mut nonce).expect("Should have filled out the nonce");
+    println!("Filled out the nonce   {}, {:02x}", nonce_len, nonce.iter().format(""));
 
     let ad: [u8; 0] = [0; 0];
 
-    // Generate
-    // let mut seal_buffer = data.to_vec();
+    // Push the tag onto the end of our data
     for _ in 0..tag_len {
         data.push(0);
     }
 
-    let ciphertext_size = seal_in_place(&sealing_key, &NONCE[..nonce_len], &ad[..], &mut data[..], tag_len).expect("Should have sealed in place properly");
+    let ciphertext_size = seal_in_place(&sealing_key, &nonce, &ad[..], &mut data[..], tag_len).expect("Should have sealed in place properly");
 
-    let ciphertext = &data[..ciphertext_size];
+    // let ciphertext = &data[..ciphertext_size];
 
-    println!("Sealed ciphertext: {:02x}", ciphertext.iter().format(""));
+    // println!("Sealed ciphertext: {:02x}", ciphertext.iter().format(""));
 
-    return ciphertext;
+    data.splice(..0, nonce);
+
+    let encrypted_len = nonce_len + ciphertext_size;
+
+    // nonce.extend(data[..ciphertext_size].iter().cloned());
+
+    println!("Nonce+ciphertext: {:02x}", data.iter().format(""));
+
+    return &data[..encrypted_len];
 }
 
 fn determine_database_path(path: Option<&str>) -> String {
