@@ -19,50 +19,57 @@ use self::odds::vec::VecExt;
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 
-static KEY: &'static [u8] = b"7b6300f7dc21c9fddeaa71f439d53b553a7bf3e69ff515b5cb6495d652a0f99c";
-
 // Next steps:
-// 1. Pass in the key
+// 1. Break into `database.rs` and `encrypted_storage.rs`
 // 2. Create some kind of actual structure that can be used.
-// 3. Break into `database.rs` and `encrypted_storage.rs`
-// 4. Code cleanup
-// 5. Unit tests
+// 3. Code cleanup
+// 4. Unit tests
 
-pub fn read_database(buf: &mut String) {
+pub fn read_database_string(buf: &mut String, key: &[u8]) {
+    let mut sealed_buffer : Vec<u8> = Vec::new();
+
+    let plaintext = read_database(&mut sealed_buffer, key);
+
+    // println!("Unsealed plaintext: {}", from_utf8(sealed_buffer).unwrap());
+    let s = String::from_utf8_lossy(&plaintext);
+    println!("Unsealed plaintext: {}", s);
+
+    buf.clear();
+    buf.push_str(&s);
+}
+
+pub fn read_database<'a>(buffer: &'a mut Vec<u8>, key: &[u8]) -> &'a[u8] {
     let db_path = resolve_database_path();
     let mut f = File::open(db_path).expect("Failed to open the database file");
 
-    let mut sealed_buffer : Vec<u8> = Vec::new();
-    f.read_to_end(&mut sealed_buffer).expect("Failed to read the database file into the provided string buffer");
+    buffer.clear();
+    f.read_to_end(buffer).expect("Failed to read the database file into the provided string buffer");
 
-    println!("Opened database ciphertext: {:02x}", sealed_buffer.iter().format(""));
+    println!("Opened database ciphertext: {:02x}", buffer.iter().format(""));
 
-    open_data(&mut sealed_buffer);
-
-    buf.clear();
-    buf.push_str(&format!("{:02x}", sealed_buffer.iter().format("")));
+    return open_data(buffer, key);
 }
 
-pub fn write_database(buf: &[u8]) {
+pub fn write_database(buf: &[u8], key: &[u8]) {
     let db_path = resolve_database_path();
     let mut f = File::create(db_path).expect("Failed to open the database file");
     let mut data = buf.to_vec();
 
     println!("Sealing plaintext: {}", from_utf8(&data[..]).unwrap());
 
-    let ciphertext = seal_data(&mut data);
+    let ciphertext = seal_data(&mut data, key);
 
     println!("In write database ciphertext: {:02x}", ciphertext.iter().format(""));
 
     f.write_all(ciphertext).expect("Failed to write the provided string buffer into the database file");
 }
 
-fn open_data(data: &mut Vec<u8>) {
+fn open_data<'a>(data: &'a mut Vec<u8>, key: &[u8]) -> &'a [u8] {
     let chacha20_poly1305 = &aead::CHACHA20_POLY1305;
     let key_len = chacha20_poly1305.key_len();
     let nonce_len = chacha20_poly1305.nonce_len();
 
-    let opening_key = aead::OpeningKey::new(chacha20_poly1305, &KEY[..key_len]).expect("Should have generated the sealing key");
+    let opening_key = aead::OpeningKey::new(chacha20_poly1305, &key[..key_len]).expect("Should have generated the sealing key");
 
     let ad: [u8; 0] = [0; 0];
 
@@ -71,15 +78,17 @@ fn open_data(data: &mut Vec<u8>) {
     let plaintext = open_in_place(&opening_key, &nonce, &ad[..], nonce_len, &mut data[..]).expect("Should have opened in place properly.");
 
     println!("Unsealed plaintext: {} [len {}]", from_utf8(plaintext).unwrap(), plaintext.len());
+
+    return plaintext;
 }
 
-fn seal_data(data: &mut Vec<u8>) -> &[u8] {
+fn seal_data<'a>(data: &'a mut Vec<u8>, key: &[u8]) -> &'a [u8] {
     let chacha20_poly1305 = &aead::CHACHA20_POLY1305;
     let tag_len = chacha20_poly1305.tag_len();
     let key_len = chacha20_poly1305.key_len();
     let nonce_len = chacha20_poly1305.nonce_len();
 
-    let sealing_key = aead::SealingKey::new(chacha20_poly1305, &KEY[..key_len]).expect("Should have generated the sealing key");
+    let sealing_key = aead::SealingKey::new(chacha20_poly1305, &key[..key_len]).expect("Should have generated the sealing key");
     // TODO Generate a real nonce using SecureRandom instead of using a const nonce
     let mut nonce: Vec<u8> = vec![0; nonce_len];
     println!("Generated nonce of len {}, {:02x}", nonce_len, nonce.iter().format(""));
