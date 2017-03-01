@@ -16,7 +16,8 @@ use self::ring::rand::SystemRandom;
 use self::odds::vec::VecExt;
 
 // Next steps:
-// 2. Code cleanup
+// 1. Code cleanup
+// 2. Error handling
 // 3. Unit tests
 
 pub struct EncryptedStorage {
