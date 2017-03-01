@@ -4,6 +4,7 @@ extern crate odds;
 
 use std::io::prelude::*;
 use std::fs::File;
+use std::path::PathBuf;
 use std::path::Path;
 use std::str::from_utf8;
 use std::vec::Vec;
@@ -15,10 +16,27 @@ use self::itertools::Itertools;
 use self::odds::vec::VecExt;
 
 // Next steps:
-// 1. Break into `database.rs` and `encrypted_storage.rs`
-// 2. Create some kind of actual structure that can be used.
-// 3. Code cleanup
-// 4. Unit tests
+// 1. Create some kind of actual structure that can be used.
+// 2. Code cleanup
+// 3. Unit tests
+
+pub struct EncryptedStorage {
+    path: PathBuf,
+    key:  Vec<u8>
+}
+
+impl EncryptedStorage {
+    pub fn new(path: PathBuf, key: Vec<u8>) -> EncryptedStorage {
+        EncryptedStorage {
+            path: path,
+            key: key
+        }
+    }
+
+    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a[u8] {
+        return read_encrypted(&self.path, buffer, &self.key);
+    }
+}
 
 pub fn read_encrypted<'a, P: AsRef<Path>>(path: P, buffer: &'a mut Vec<u8>, key: &[u8]) -> &'a[u8] {
     let mut f = File::open(path).expect("Failed to open the database file");

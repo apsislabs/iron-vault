@@ -1,4 +1,4 @@
-use encrypted_storage::read_encrypted;
+use encrypted_storage::EncryptedStorage;
 use encrypted_storage::write_encrypted;
 
 use std::env;
@@ -12,15 +12,19 @@ static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 pub fn read_database_string(buf: &mut String, key: &[u8]) {
     let mut sealed_buffer : Vec<u8> = Vec::new();
 
-    let plaintext = read_database(&mut sealed_buffer, key);
+    let plaintext = read_database(&mut sealed_buffer, key.to_vec());
 
     buf.clear();
     buf.push_str(&String::from_utf8_lossy(&plaintext));
 }
 
-pub fn read_database<'a>(buffer: &'a mut Vec<u8>, key: &[u8]) -> &'a[u8] {
+pub fn read_database<'a>(buffer: &'a mut Vec<u8>, key: Vec<u8>) -> &'a[u8] {
     let db_path = resolve_database_path();
-    return read_encrypted(db_path, buffer, key);
+    let es = EncryptedStorage::new(db_path, key);
+
+    return es.read(buffer);
+
+    // return read_encrypted(db_path, buffer, key);
 }
 
 pub fn write_database(buf: &[u8], key: &[u8]) {
