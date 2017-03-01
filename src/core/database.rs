@@ -1,5 +1,4 @@
 use encrypted_storage::EncryptedStorage;
-use encrypted_storage::write_encrypted;
 
 use std::env;
 use std::fs::create_dir_all;
@@ -21,15 +20,17 @@ pub fn read_database_string(buf: &mut String, key: &[u8]) {
 pub fn read_database<'a>(buffer: &'a mut Vec<u8>, key: Vec<u8>) -> &'a[u8] {
     let db_path = resolve_database_path();
     let es = EncryptedStorage::new(db_path, key);
-
     return es.read(buffer);
 
     // return read_encrypted(db_path, buffer, key);
 }
 
-pub fn write_database(buf: &[u8], key: &[u8]) {
+pub fn write_database(buf: &[u8], key: Vec<u8>) {
     let db_path = resolve_database_path();
-    return write_encrypted(db_path, buf, key);
+
+    let es = EncryptedStorage::new(db_path, key);
+    return es.write(buf);
+    // return write_encrypted(db_path, buf, key);
 }
 
 fn determine_database_path(path: Option<&str>) -> String {

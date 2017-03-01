@@ -36,9 +36,13 @@ impl EncryptedStorage {
     pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a[u8] {
         return read_encrypted(&self.path, buffer, &self.key);
     }
+
+    pub fn write(&self, buffer: &[u8]) {
+        return write_encrypted(&self.path, buffer, &self.key);
+    }
 }
 
-pub fn read_encrypted<'a, P: AsRef<Path>>(path: P, buffer: &'a mut Vec<u8>, key: &[u8]) -> &'a[u8] {
+fn read_encrypted<'a, P: AsRef<Path>>(path: P, buffer: &'a mut Vec<u8>, key: &[u8]) -> &'a[u8] {
     let mut f = File::open(path).expect("Failed to open the database file");
 
     buffer.clear();
@@ -49,7 +53,7 @@ pub fn read_encrypted<'a, P: AsRef<Path>>(path: P, buffer: &'a mut Vec<u8>, key:
     return open_data(buffer, key);
 }
 
-pub fn write_encrypted<P: AsRef<Path>>(path: P, buf: &[u8], key: &[u8]) {
+fn write_encrypted<P: AsRef<Path>>(path: P, buf: &[u8], key: &[u8]) {
     let mut f = File::create(path).expect("Failed to open the database file");
     let mut data = buf.to_vec();
 

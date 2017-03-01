@@ -7,7 +7,7 @@ static KEY: &'static [u8] = b"7b6300f7dc21c9fddeaa71f439d53b553a7bf3e69ff515b5cb
 
 pub fn main() {
     let msg = String::from("Hello world, this is rust");
-    write_database(msg.as_bytes(), &KEY);
+    write_database(msg.as_bytes(), KEY.to_vec());
 
     let mut s = String::new();
 
