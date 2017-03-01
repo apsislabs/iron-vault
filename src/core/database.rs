@@ -20,15 +20,13 @@ static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 
 static KEY: &'static [u8] = b"7b6300f7dc21c9fddeaa71f439d53b553a7bf3e69ff515b5cb6495d652a0f99c";
-static NONCE: &'static [u8] = b"070000004041424344454647";
 
 // Next steps:
-// 1. Generate, store, and read nonce!
-// 2. Pass in the key
-// 3. Create some kind of actual structure that can be used.
-// 4. Break into `database.rs` and `encrypted_storage.rs`
-// 5. Code cleanup
-// 6. Unit tests
+// 1. Pass in the key
+// 2. Create some kind of actual structure that can be used.
+// 3. Break into `database.rs` and `encrypted_storage.rs`
+// 4. Code cleanup
+// 5. Unit tests
 
 pub fn read_database(buf: &mut String) {
     let db_path = resolve_database_path();
@@ -66,11 +64,11 @@ fn open_data(data: &mut Vec<u8>) {
 
     let opening_key = aead::OpeningKey::new(chacha20_poly1305, &KEY[..key_len]).expect("Should have generated the sealing key");
 
-    // TODO: Read the real nonce instead of using a crazy const nonce
-
     let ad: [u8; 0] = [0; 0];
 
-    let plaintext = open_in_place(&opening_key, &NONCE[..nonce_len], &ad[..], 0, &mut data[..]).expect("Should have opened in place properly.");
+    let nonce = data[..nonce_len].to_vec();
+
+    let plaintext = open_in_place(&opening_key, &nonce, &ad[..], nonce_len, &mut data[..]).expect("Should have opened in place properly.");
 
     println!("Unsealed plaintext: {} [len {}]", from_utf8(plaintext).unwrap(), plaintext.len());
 }
