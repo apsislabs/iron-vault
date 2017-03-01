@@ -4,7 +4,7 @@ use vault_core::database::read_database;
 use vault_core::database::write_database;
 
 pub fn main() {
-    write_database(b"Hello World");
+    write_database(b"Hello World, Maybe");
 
     let mut s = String::new();
 

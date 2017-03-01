@@ -12,3 +12,5 @@ name = "vault_cli"
 path = "src/cli/cli.rs"
 
 [dependencies]
+ring = "0.7.1"
+itertools = "0.5.9"
