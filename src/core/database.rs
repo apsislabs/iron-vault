@@ -8,29 +8,35 @@ use std::vec::Vec;
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 
-pub fn read_database_string(buf: &mut String, key: &[u8]) {
-    let mut sealed_buffer : Vec<u8> = Vec::new();
-
-    let plaintext = read_database(&mut sealed_buffer, key.to_vec());
-
-    buf.clear();
-    buf.push_str(&String::from_utf8_lossy(&plaintext));
+pub struct Database {
+    es: EncryptedStorage,
 }
 
-pub fn read_database<'a>(buffer: &'a mut Vec<u8>, key: Vec<u8>) -> &'a[u8] {
-    let db_path = resolve_database_path();
-    let es = EncryptedStorage::new(db_path, key);
-    return es.read(buffer);
+impl Database {
+    pub fn new(key: Vec<u8>) -> Database {
+        let path = resolve_database_path();
 
-    // return read_encrypted(db_path, buffer, key);
-}
+        Database {
+            es: EncryptedStorage::new(path, key),
+        }
+    }
 
-pub fn write_database(buf: &[u8], key: Vec<u8>) {
-    let db_path = resolve_database_path();
+    pub fn read_string(&self, buffer: &mut String) {
+        let mut sealed_buffer: Vec<u8> = Vec::new();
 
-    let es = EncryptedStorage::new(db_path, key);
-    return es.write(buf);
-    // return write_encrypted(db_path, buf, key);
+        let plaintext = self.read(&mut sealed_buffer);
+
+        buffer.clear();
+        buffer.push_str(&String::from_utf8_lossy(&plaintext));
+    }
+
+    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a[u8] {
+        return &self.es.read(buffer);
+    }
+
+    pub fn write(&self, buffer: &[u8]) {
+        &self.es.write(buffer);
+    }
 }
 
 fn determine_database_path(path: Option<&str>) -> String {
@@ -97,7 +103,6 @@ mod test {
             assert!( !Path::new("test_dir/something/ironvault").is_dir() );
 
             let db_path = resolve_database_path();
-            println!("{}", db_path.display());
 
             assert!( Path::new("test_dir").is_dir() );
             assert!( Path::new("test_dir/something").is_dir() );

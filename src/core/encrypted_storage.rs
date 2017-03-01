@@ -16,7 +16,6 @@ use self::itertools::Itertools;
 use self::odds::vec::VecExt;
 
 // Next steps:
-// 1. Create some kind of actual structure that can be used.
 // 2. Code cleanup
 // 3. Unit tests
 
