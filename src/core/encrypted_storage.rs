@@ -1,4 +1,6 @@
 use std::io::prelude::*;
+use std::error;
+use std::fmt;
 use std::fs;
 use std::path;
 use std::vec::Vec;
@@ -7,7 +9,6 @@ use ring::rand;
 use odds::vec::VecExt;
 
 // Next steps:
-// 1. Code cleanup
 // 2. Error handling
 // 3. Unit tests
 // 4. Documentation
@@ -27,7 +28,7 @@ impl EncryptedStorage {
         }
     }
 
-    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a [u8] {
+    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> Result<&'a [u8], StorageError> {
         return read_encrypted(&self.path, buffer, &self.key, &self.algorithm);
     }
 
@@ -36,11 +37,39 @@ impl EncryptedStorage {
     }
 }
 
+#[derive(Debug)]
+pub enum StorageError {
+    KeyLengthError,
+    KeyError,
+}
+
+impl fmt::Display for StorageError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            StorageError::KeyLengthError => write!(f, "The key was not the right length for the encryption algorithm"),
+            StorageError::KeyError => write!(f, "There was a problem with the key to access the encrypted storage."),
+        }
+    }
+}
+
+impl error::Error for StorageError {
+    fn description(&self) -> &str {
+        match *self {
+            StorageError::KeyLengthError => "The key was not the right length for the encryption algorithm",
+            StorageError::KeyError => "There was a problem with the key to access the encrypted storage.",
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        return None;
+    }
+}
+
 fn read_encrypted<'a, P: AsRef<path::Path>>(path: P,
                                             buffer: &'a mut Vec<u8>,
                                             key: &[u8],
                                             algorithm: &'static aead::Algorithm)
-                                            -> &'a [u8] {
+                                            -> Result<&'a [u8], StorageError> {
     let mut f = fs::File::open(path).expect("Failed to open the database file");
 
     buffer.clear();
@@ -66,13 +95,13 @@ fn write_encrypted<P: AsRef<path::Path>>(path: P,
 fn open_data<'a>(data: &'a mut Vec<u8>,
                  key: &[u8],
                  algorithm: &'static aead::Algorithm)
-                 -> &'a [u8] {
+                 -> Result<&'a [u8], StorageError> {
 
     let nonce_len = algorithm.nonce_len();
-    let key_len = algorithm.key_len();
 
-    let opening_key = aead::OpeningKey::new(algorithm, &key[..key_len])
-        .expect("Should have generated the sealing key");
+    try!(verify_key_len(algorithm, key));
+
+    let opening_key = try!(aead::OpeningKey::new(algorithm, &key).map_err(|e| StorageError::KeyError));
     let nonce = data[..nonce_len].to_vec();
 
     let plaintext = aead::open_in_place(&opening_key,
@@ -82,7 +111,7 @@ fn open_data<'a>(data: &'a mut Vec<u8>,
                                         &mut data[..])
         .expect("Should have opened in place properly.");
 
-    return plaintext;
+    return Ok(plaintext);
 }
 
 fn seal_data<'a>(data: &'a mut Vec<u8>,
@@ -112,6 +141,14 @@ fn seal_data<'a>(data: &'a mut Vec<u8>,
     let encrypted_len = nonce_len + ciphertext_len;
 
     return &data[..encrypted_len];
+}
+
+fn verify_key_len(algorithm: &'static aead::Algorithm, key: &[u8]) -> Result<bool, StorageError> {
+    if algorithm.key_len() != key.len() {
+        return Err(StorageError::KeyLengthError);
+    }
+
+    return Ok(true);
 }
 
 fn generate_nonce(algorithm: &'static aead::Algorithm) -> Vec<u8> {
