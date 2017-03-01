@@ -1,16 +1,16 @@
-use encrypted_storage::EncryptedStorage;
+use encrypted_storage;
 
 use std::env;
-use std::fs::create_dir_all;
-use std::path::PathBuf;
+use std::fs;
+use std::path;
 use std::vec::Vec;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 
 pub struct Database {
-    pub path: PathBuf,
-    es: EncryptedStorage,
+    pub path: path::PathBuf,
+    storage: encrypted_storage::EncryptedStorage,
 }
 
 impl Database {
@@ -19,7 +19,7 @@ impl Database {
 
         Database {
             path: path.clone(),
-            es: EncryptedStorage::new(path, key),
+            storage: encrypted_storage::EncryptedStorage::new(path, key),
         }
     }
 
@@ -33,11 +33,11 @@ impl Database {
     }
 
     pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a[u8] {
-        return &self.es.read(buffer);
+        return &self.storage.read(buffer);
     }
 
     pub fn write(&self, buffer: &[u8]) {
-        &self.es.write(buffer);
+        &self.storage.write(buffer);
     }
 }
 
@@ -54,13 +54,13 @@ fn determine_database_path(path: Option<&str>) -> String {
     return format!("{}{}", home_dir.display(), DEFAULT_DATABASE_PATH);
 }
 
-fn resolve_database_path() -> PathBuf {
+fn resolve_database_path() -> path::PathBuf {
     let path = determine_database_path(None);
 
-    let path = PathBuf::from(&path);
+    let path = path::PathBuf::from(&path);
 
     match path.parent() {
-        Some(parent) => create_dir_all(parent).expect("Failed to create the directory for the database"),
+        Some(parent) => fs::create_dir_all(parent).expect("Failed to create the directory for the database"),
         _            => panic!("The path didn't have a parent attribute.")
     }
 
