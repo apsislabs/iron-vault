@@ -32,7 +32,7 @@ impl Database {
         buffer.push_str(&String::from_utf8_lossy(&plaintext));
     }
 
-    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a[u8] {
+    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a [u8] {
         return &self.storage.read(buffer);
     }
 
@@ -43,11 +43,15 @@ impl Database {
 
 fn determine_database_path(path: Option<&str>) -> String {
     // 1 - Explicit Override Resolution
-    if path.is_some() { return String::from(path.unwrap()); }
+    if path.is_some() {
+        return String::from(path.unwrap());
+    }
 
     // 2 - Environment Variable Resolution
     let environment_result = env::var(ENVIRONMENT_KEY);
-    if environment_result.is_ok() { return environment_result.unwrap(); }
+    if environment_result.is_ok() {
+        return environment_result.unwrap();
+    }
 
     // 3 - Hardcoded Resolution
     let home_dir = env::home_dir().expect("Failed to find the home directory");
@@ -60,8 +64,10 @@ fn resolve_database_path() -> path::PathBuf {
     let path = path::PathBuf::from(&path);
 
     match path.parent() {
-        Some(parent) => fs::create_dir_all(parent).expect("Failed to create the directory for the database"),
-        _            => panic!("The path didn't have a parent attribute.")
+        Some(parent) => {
+            fs::create_dir_all(parent).expect("Failed to create the directory for the database")
+        }
+        _ => panic!("The path didn't have a parent attribute."),
     }
 
     return path;
@@ -91,7 +97,8 @@ mod test {
     #[test]
     fn determine_database_path_with_explicit_path() {
         test_cleanup(&|| {
-            assert_eq!(determine_database_path(Some("~/.test_tmp/ironvault-explicit")), "~/.test_tmp/ironvault-explicit");
+            assert_eq!(determine_database_path(Some("~/.test_tmp/ironvault-explicit")),
+                       "~/.test_tmp/ironvault-explicit");
         });
     }
 
@@ -100,15 +107,15 @@ mod test {
         test_cleanup(&|| {
             env::set_var(ENVIRONMENT_KEY, "test_dir/something/ironvault");
 
-            assert!( !Path::new("test_dir").is_dir() );
-            assert!( !Path::new("test_dir/something").is_dir() );
-            assert!( !Path::new("test_dir/something/ironvault").is_dir() );
+            assert!(!Path::new("test_dir").is_dir());
+            assert!(!Path::new("test_dir/something").is_dir());
+            assert!(!Path::new("test_dir/something/ironvault").is_dir());
 
             let db_path = resolve_database_path();
 
-            assert!( Path::new("test_dir").is_dir() );
-            assert!( Path::new("test_dir/something").is_dir() );
-            assert!( !Path::new("test_dir/something/ironvault").is_dir() );
+            assert!(Path::new("test_dir").is_dir());
+            assert!(Path::new("test_dir/something").is_dir());
+            assert!(!Path::new("test_dir/something/ironvault").is_dir());
         });
     }
 
