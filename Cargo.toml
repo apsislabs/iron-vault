@@ -13,5 +13,4 @@ path = "src/cli/cli.rs"
 
 [dependencies]
 ring = "0.7.1" # Used for core crypto
-itertools = "0.5.9" # Used for formatting byte arrays into hex representations
 odds = "0.2.25" # Odds and ends used for its Vector Extensions
