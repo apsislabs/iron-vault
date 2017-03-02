@@ -8,9 +8,6 @@ use std::vec::Vec;
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 
-// Next steps:
-// 1. Documentation
-
 pub struct Database {
     pub path: path::PathBuf,
     storage: encrypted_storage::EncryptedStorage,

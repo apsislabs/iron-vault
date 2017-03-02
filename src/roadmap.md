@@ -13,19 +13,25 @@ This is the version to capture the initial development efforts and will not be r
 
 The goal of Version 0.2.0 is to develop `vault_core` to the point that it could
 reasonably be used for an incredibly bare-bones implementation of Iron Vault. As
-part of this milestone `vault_cli` will be developed only to the extent necessary
+part of this milestone `iv` will be developed only to the extent necessary
 to demonstrate the use of `vault_core`, and will not be considered part of the
 Version 0.2.0 release.
 
 ### Milestone 1 - Read and Write Encrypted Files
+* Completed
 
 ### Milestone 2 - Store And Retrieve Named Passwords
+* In Progress
 
 ### Milestone 3 - Store And Retrieve Arbitrary Metadata for Named Passwords
+
+### Milestone 4 - Store Index for Passwords
+
+### Milestone 5 - Hold Database Unlocked
 
 ### Future Milestones TBD
 
 ## Version 0.3.0
 
-The goal of Version 0.3.0 is to develop `vault_cli` to be a bare-bones command line
+The goal of Version 0.3.0 is to develop `iv` to be a bare-bones command line
 application that can effectively store and retrieve passwords.
