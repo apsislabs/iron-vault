@@ -90,18 +90,18 @@ mod test {
         }
 
         it "uses environment variable before hardcoded path" {
-            env::set_var(ENVIRONMENT_KEY, "~/test_tmp/ironvault");
-            assert_eq!(determine_database_path(None), "~/test_tmp/ironvault");
+            env::set_var(ENVIRONMENT_KEY, "test_dir/env/ironvault");
+            assert_eq!(determine_database_path(None), "test_dir/env/ironvault");
         }
 
         it "uses explicit path if one is provided" {
-            assert_eq!(determine_database_path(Some("~/.test_tmp/ironvault-explicit")),
-                                   "~/.test_tmp/ironvault-explicit");
+            assert_eq!(determine_database_path(Some("test_dir/explicit")),
+                                   "test_dir/explicit");
 
-            env::set_var(ENVIRONMENT_KEY, "~/test_tmp/ironvault");
+            env::set_var(ENVIRONMENT_KEY, "test_dir/env/ironvault");
 
-            assert_eq!(determine_database_path(Some("~/.test_tmp/ironvault-explicit")),
-                                   "~/.test_tmp/ironvault-explicit");
+            assert_eq!(determine_database_path(Some("test_dir/explicit")),
+                                   "test_dir/explicit");
         }
 
         it "uses the hardcoded path if no other form is available" {

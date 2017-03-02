@@ -9,9 +9,10 @@ use ring::aead;
 use ring::rand;
 use odds::vec::VecExt;
 
-// Next steps:
-// 1. Documentation
-
+/// A reference to an encrypted file.
+///
+/// An instance of `EncryptedStorage` can read or write bytes to the path it was initialized with.
+/// These files are written encrypted with the algorithm and key that are provided to `::new`.
 pub struct EncryptedStorage {
     path: path::PathBuf,
     key: Vec<u8>,
@@ -19,6 +20,18 @@ pub struct EncryptedStorage {
 }
 
 impl EncryptedStorage {
+    /// Creates a new `EncryptedStorage` with the given key and path. The key should be a valid
+    /// CHACHA20_POLY1305 key (256 bits long or 32 bytes long).
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// use std::path::PathBuf;
+    /// use vault_core::encrypted_storage::EncryptedStorage;
+    ///
+    /// let path         = PathBuf::from("test/database");
+    /// let key: Vec<u8> = b"7b6300f7dc21c9fddeaa71f439d53b55".to_vec();
+    /// EncryptedStorage::new(path, &key);
+    /// ```
     pub fn new(path: path::PathBuf, key: Vec<u8>) -> EncryptedStorage {
         EncryptedStorage {
             path: path,
@@ -27,10 +40,38 @@ impl EncryptedStorage {
         }
     }
 
+    /// Reads data from the encrypted storage using the CHACHA20_POLY1305 algorithm and the key for
+    /// the current storage file.
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason
+    /// (i.e. it doesn't exist, or the process doesn't have permission to open it.)
+    /// * `StorageError::KeyLengthError` if the key is not the proper length
+    /// for the CHACHA20_POLY1305 algorithm.
+    /// * `StorageError::KeyError` if there is some other issue that occurs
+    /// in generating the interal OpeningKey.
+    /// * `StorageError::DecryptionError` if there is a problem decrypting the
+    /// contents of the file (i.e. the file is not long enough to read the nonce, or the key does not
+    /// decrypt the file properly).
     pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> Result<&'a [u8], StorageError> {
         return read_encrypted(&self.path, buffer, &self.key, &self.algorithm);
     }
 
+    /// Writes the given data to the encrypted storage using the CHACHA20_POLY1305 algorithm and the key for
+    /// the current storage file. This will generate a new nonce using the system provided secure
+    /// random generator (using `ring`).
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason
+    /// (i.e. it doesn't exist, or the process doesn't have permission to open it.)
+    /// * `StorageError::KeyLengthError` if the key is not the proper length
+    /// for the CHACHA20_POLY1305 algorithm.
+    /// * `StorageError::KeyError` if there is some other issue that occurs
+    /// in generating the interal OpeningKey.
+    /// * `NonceGenerationError` if the nonce cannot be generated for any reason.
+    /// * `StorageError::EncryptionError` if there is a problem decrypting the
+    /// contents of the file (i.e. the file is not long enough to read the nonce, or the key does not
+    /// decrypt the file properly).
     pub fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
         return write_encrypted(&self.path, buffer, &self.key, &self.algorithm);
     }
