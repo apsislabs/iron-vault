@@ -18,10 +18,13 @@ to demonstrate the use of `vault_core`, and will not be considered part of the
 Version 0.2.0 release.
 
 ### Milestone 1 - Read and Write Encrypted Files
-* Completed
+**In Progress**
+* **Completed** Read and Write to simple encrypted files
+* **In Progress** Generate and store an encryption key file
+* Store a "encryption data" file with dummy data using the encryption key.
+* Use a key derivation function to encrypt the encryption key file with a master password
 
 ### Milestone 2 - Store And Retrieve Named Passwords
-* In Progress
 
 ### Milestone 3 - Store And Retrieve Arbitrary Metadata for Named Passwords
 
