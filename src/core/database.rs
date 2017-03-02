@@ -8,6 +8,9 @@ use std::vec::Vec;
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
 
+// Next steps:
+// 1. Documentation
+
 pub struct Database {
     pub path: path::PathBuf,
     storage: encrypted_storage::EncryptedStorage,
@@ -112,6 +115,10 @@ mod test {
             remove_test_dir();
         }
 
+        after_each {
+            remove_test_dir();
+        }
+
         it "should create the directory if one doesn't exist" {
             env::set_var(ENVIRONMENT_KEY, "test_dir/something/ironvault");
 
@@ -128,6 +135,6 @@ mod test {
     }
 
     fn remove_test_dir() {
-        fs::remove_dir_all("test_dir").unwrap_or(())
+        fs::remove_dir_all("test_dir").unwrap_or(());
     }
 }

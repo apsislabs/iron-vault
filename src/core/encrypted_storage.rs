@@ -10,8 +10,7 @@ use ring::rand;
 use odds::vec::VecExt;
 
 // Next steps:
-// 1. Unit tests
-// 2. Documentation
+// 1. Documentation
 
 pub struct EncryptedStorage {
     path: path::PathBuf,
@@ -209,5 +208,104 @@ fn append_tag_storage(plaintext: &mut Vec<u8>, algorithm: &'static aead::Algorit
 
     for _ in 0..tag_len {
         plaintext.push(0);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    describe! new {
+        before_each {
+            ensure_test_dir();
+        }
+
+        it "should instantiate without an error" {
+            let key: &[u8] = b"7b6300f7dc21c9fddeaa71f439d53b55";
+            EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
+        }
+    }
+
+    describe! write_and_read {
+        before_each {
+            ensure_test_dir();
+            let key: &[u8] = b"7b6300f7dc21c9fddeaa71f439d53b55";
+            let _storage = EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
+            let _short_message = String::from("Short message");
+        }
+
+        after_each {
+            remove_test_dir();
+        }
+
+        it "should write to a file" {
+            assert_eq!(path::Path::new("test_dir/database").is_file(), false);
+            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+            assert!(path::Path::new("test_dir/database").is_file());
+        }
+
+        it "should write encrypted looking data to a file" {
+            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+
+            let mut contents : Vec<u8> = Vec::new();
+            let mut file = fs::File::open("test_dir/database").expect("File should exist and open properly");
+            file.read_to_end(&mut contents).expect("File should be read properly");
+            let encrypted_contents = String::from_utf8_lossy(&contents);
+
+            assert_eq!(encrypted_contents.contains("Short message"), false);
+        }
+
+        ignore "should write CHACHA20 POLY1305 data to a file" {
+            // TODO: How to actually validate the encryption, without relying on code that we've written?
+            // Third party tools, or other?
+        }
+
+        it "should be able to read the encrypted file" {
+            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+
+            // Read it back, convert it to a string and make sure it's equal
+            let mut sealed_buffer: Vec<u8> = Vec::new();
+
+            let plaintext = _storage.read(&mut sealed_buffer).expect("The read should be successful");
+
+            let plaintext = String::from_utf8_lossy(plaintext);
+            assert_eq!(plaintext, "Short message");
+        }
+
+        it "should return an error if the Key Length is incorrect" {
+            let key: &[u8] = b"7b6300f7dc21c9fddeaa71f439d53b551"; // 1 extra byte
+            let storage = EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
+
+            let result = storage.write(_short_message.as_bytes());
+
+            assert!(match result.unwrap_err() {
+                StorageError::KeyLengthError => true,
+                _ => false
+            });
+        }
+
+        it "should return an error the data was encrypted with a different key" {
+            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+
+            let key: &[u8] = b"7b6300f7dc21c9fddeaa71f439d53b56"; // ending b55 => b56
+            let storage = EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
+
+            let mut sealed_buffer: Vec<u8> = Vec::new();
+            let result = storage.read(&mut sealed_buffer);
+
+            assert!(match result.unwrap_err() {
+                StorageError::DecryptionError => true,
+                _ => false
+            });
+        }
+    }
+
+    fn ensure_test_dir() {
+        fs::remove_dir_all("test_dir").unwrap_or(());
+        fs::create_dir_all("test_dir").unwrap_or(());
+    }
+
+    fn remove_test_dir() {
+        fs::remove_dir_all("test_dir").unwrap_or(());
     }
 }
