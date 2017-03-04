@@ -7,22 +7,30 @@ use ring::aead;
 use ring::rand;
 use ring::pbkdf2;
 
+// CONFIGURABLE
 const ITERATIONS_BASE_COUNT     : u32 = 100000;
 const ITERATIONS_EXTENSION_COUNT: u32 = 10000;
 
-// Next Steps:
-// 1. Documentation.
-
+/// Generate a new key for the given algorithm using the given source of randomness.
+///
+/// # Errors
+/// * `KeyError::KeyGenerationError` if the source of randomness throws an error
 pub fn generate_key(algorithm: &'static aead::Algorithm, random: &rand::SecureRandom) -> Result<Vec<u8>, KeyError> {
     // Create a vector with enough space for our key
     let mut encryption_key: Vec<u8> = vec![0; algorithm.key_len()];
 
     // Fill the key using the system's secure random number generation provided by ring.
-    try!(random.fill(&mut encryption_key).map_err(|_| KeyError::KeyGenerationError));
+    random.fill(&mut encryption_key).map_err(|_| KeyError::KeyGenerationError)?;
 
     return Ok(encryption_key);
 }
 
+/// Derives a key for the given algorithm, using the provided salt and password. This uses PBKDF2
+/// (HMAC SHA256) to derive the key. The number of iterations is set at 100,000 plus 0-10000 based on
+/// password string (for a total number of iterations between 100,000 and 110,000).
+///
+/// # Errors
+/// * `KeyError::SaltLengthError` if the salt is too short (less than or equal to four bytes)
 pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: String) -> Result<Vec<u8>, KeyError> {
     // Just bugger off if you have a weak salt
     if salt.len() <= 4 {
@@ -33,6 +41,7 @@ pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: St
     let mut derived_key: Vec<u8> = vec![0; algorithm.key_len()];
 
     // Derive the key using ring (thanks ring!)
+    // CONFIGURABLE (key derivation algorith, PRF (HMAC_SHA256) for key derivation algorithm)
     pbkdf2::derive(&pbkdf2::HMAC_SHA256, iterations(password.clone()), salt,
                        password.as_bytes(), &mut derived_key);
 
