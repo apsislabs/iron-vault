@@ -1,6 +1,8 @@
-use std::vec::Vec;
-use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::error;
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::vec::Vec;
 use ring::aead;
 use ring::rand;
 use ring::pbkdf2;
@@ -9,21 +11,23 @@ const ITERATIONS_BASE_COUNT     : u32 = 100000;
 const ITERATIONS_EXTENSION_COUNT: u32 = 10000;
 
 // Next Steps:
-// 3. Documentation.
+// 1. Documentation.
 
-pub fn generate_key(algorithm: &'static aead::Algorithm, random: &rand::SecureRandom) -> Vec<u8> {
+pub fn generate_key(algorithm: &'static aead::Algorithm, random: &rand::SecureRandom) -> Result<Vec<u8>, KeyError> {
     // Create a vector with enough space for our key
     let mut encryption_key: Vec<u8> = vec![0; algorithm.key_len()];
 
     // Fill the key using the system's secure random number generation provided by ring.
-    random.fill(&mut encryption_key).expect("Should have generated the key successfully");
+    try!(random.fill(&mut encryption_key).map_err(|_| KeyError::KeyGenerationError));
 
-    return encryption_key;
+    return Ok(encryption_key);
 }
 
-pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: String) -> Vec<u8> {
-
-    assert!(salt.len() > 4);
+pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: String) -> Result<Vec<u8>, KeyError> {
+    // Just bugger off if you have a weak salt
+    if salt.len() <= 4 {
+        return Err(KeyError::SaltLengthError);
+    }
 
     // Create a vector with enough space for our key
     let mut derived_key: Vec<u8> = vec![0; algorithm.key_len()];
@@ -32,7 +36,7 @@ pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: St
     pbkdf2::derive(&pbkdf2::HMAC_SHA256, iterations(password.clone()), salt,
                        password.as_bytes(), &mut derived_key);
 
-    return derived_key;
+    return Ok(derived_key);
 }
 
 /// Determine the total number of iterations to use for the given password. Theoretically this will
@@ -54,6 +58,41 @@ fn iterations(password: String) -> u32 {
     return iterations;
 }
 
+#[derive(Debug)]
+pub enum KeyError {
+    KeyGenerationError,
+    SaltLengthError,
+}
+
+impl fmt::Display for KeyError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            KeyError::KeyGenerationError => {
+                write!(f,
+                       "There was a problem generating the key from the system's random values.")
+            }
+            KeyError::SaltLengthError => {
+                write!(f, "The given salt was too short.")
+            }
+        }
+    }
+}
+
+impl error::Error for KeyError {
+    fn description(&self) -> &str {
+        match *self {
+            KeyError::KeyGenerationError => {
+                "There was a problem generating the key from the system's random values."
+            }
+            KeyError::SaltLengthError => {
+                "The given salt was too short."
+            }
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> { None }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -65,18 +104,18 @@ mod test {
 
         it "should produce keys of the correct length" {
             let alg = &aead::CHACHA20_POLY1305;
-            assert!(generate_key(alg, random).len() == alg.key_len());
+            assert!(generate_key(alg, random).unwrap().len() == alg.key_len());
 
             let alg = &aead::AES_128_GCM;
-            assert!(generate_key(alg, random).len() == alg.key_len());
+            assert!(generate_key(alg, random).unwrap().len() == alg.key_len());
 
             let alg = &aead::AES_256_GCM;
-            assert!(generate_key(alg, random).len() == alg.key_len());
+            assert!(generate_key(alg, random).unwrap().len() == alg.key_len());
         }
 
         it "should produce different keys" {
             let alg = &aead::CHACHA20_POLY1305;
-            assert!(generate_key(alg, random) != generate_key(alg, random));
+            assert!(generate_key(alg, random).unwrap() != generate_key(alg, random).unwrap());
         }
     }
 
@@ -106,33 +145,33 @@ mod test {
 
         failing "should fail if the salt is too short" {
             let _salt: [u8; 2] = [0xd6, 0x26];
-            derive_key(alg, &_salt, "hello".to_string());
+            derive_key(alg, &_salt, "hello".to_string()).unwrap();
         }
 
         ignore "should derive different keys for the same password with different salts" {
-            let key_a = derive_key(alg, &_salt, "hello".to_string());
+            let key_a = derive_key(alg, &_salt, "hello".to_string()).unwrap();
             let _salt: [u8; 16] = [0xe6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52, 0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a];
-            let key_b = derive_key(alg, &_salt, "hello".to_string());
+            let key_b = derive_key(alg, &_salt, "hello".to_string()).unwrap();
 
             assert!(key_a != key_b);
         }
 
         ignore "should produce keys of the correct length" {
-            assert!(derive_key(alg, &_salt, "hello".to_string()).len() == alg.key_len());
+            assert!(derive_key(alg, &_salt, "hello".to_string()).unwrap().len() == alg.key_len());
 
             let alg = &aead::AES_128_GCM;
-            assert!(derive_key(alg, &_salt, "hello".to_string()).len() == alg.key_len());
+            assert!(derive_key(alg, &_salt, "hello".to_string()).unwrap().len() == alg.key_len());
 
             let alg = &aead::AES_256_GCM;
-            assert!(derive_key(alg, &_salt, "hello".to_string()).len() == alg.key_len());
+            assert!(derive_key(alg, &_salt, "hello".to_string()).unwrap().len() == alg.key_len());
         }
 
         ignore "should derive the same key for the same password" {
-            assert!(derive_key(alg, &_salt, "hello".to_string()) == derive_key(alg, &_salt, "hello".to_string()));
+            assert!(derive_key(alg, &_salt, "hello".to_string()).unwrap() == derive_key(alg, &_salt, "hello".to_string()).unwrap());
         }
 
         ignore "should derive different keys for different passwords" {
-            assert!(derive_key(alg, &_salt, "hello".to_string()) != derive_key(alg, &_salt, "hell".to_string()));
+            assert!(derive_key(alg, &_salt, "hello".to_string()).unwrap() != derive_key(alg, &_salt, "hell".to_string()).unwrap());
         }
     }
 }

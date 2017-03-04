@@ -33,11 +33,11 @@ impl Database {
             0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a
         ];
 
-        let key = keys::derive_key(algorithm, &salt, password);
+        let key = keys::derive_key(algorithm, &salt, password).expect("Should derive the key");
 
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
         let random = rand::SystemRandom::new(); // TODO: Use a single random value
-        let encryption_key = keys::generate_key(algorithm, &random);
+        let encryption_key = keys::generate_key(algorithm, &random).expect("Should generate new encryption key");
         encryption_key_storage.write(&encryption_key).expect("Should write new encryption key");
 
         Database {
@@ -59,7 +59,7 @@ impl Database {
             0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a
         ];
 
-        let key = keys::derive_key(algorithm, &salt, password);
+        let key = keys::derive_key(algorithm, &salt, password).expect("Should derive the key");;
 
         let mut sealed_buffer: Vec<u8> = Vec::new();
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
