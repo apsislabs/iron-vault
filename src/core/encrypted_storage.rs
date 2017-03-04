@@ -24,7 +24,7 @@ impl EncryptedStorage {
     /// CHACHA20_POLY1305 key (256 bits long or 32 bytes long).
     ///
     /// # Examples
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use std::path::PathBuf;
     /// use vault_core::encrypted_storage::EncryptedStorage;
     ///

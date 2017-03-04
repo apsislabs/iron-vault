@@ -53,7 +53,7 @@ mod test {
     }
 
     describe! derive_key {
-        it "should produce keys of the correct length" {
+        ignore "should produce keys of the correct length" {
             let alg = &aead::CHACHA20_POLY1305;
             assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
 
@@ -64,12 +64,12 @@ mod test {
             assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
         }
 
-        it "should derive the same key for the same password" {
+        ignore "should derive the same key for the same password" {
             let alg = &aead::CHACHA20_POLY1305;
             assert!(derive_key(alg, String::from("hello")) == derive_key(alg, String::from("hello")));
         }
 
-        it "should derive different keys for different passwords" {
+        ignore "should derive different keys for different passwords" {
             let alg = &aead::CHACHA20_POLY1305;
             assert!(derive_key(alg, String::from("hello")) != derive_key(alg, String::from("hell")));
         }
