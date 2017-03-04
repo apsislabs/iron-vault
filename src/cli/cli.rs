@@ -6,7 +6,6 @@ extern crate vault_core;
 use vault_core::database::Database;
 
 static PASSWORD: &'static str = "My voice is my password, verify me";
-static KEY: &'static [u8] = b"7b6300f7dc21c9fddeaa71f439d53b55";
 
 pub fn main() {
     let db = Database::create(String::from(PASSWORD));

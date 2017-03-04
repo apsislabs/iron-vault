@@ -9,4 +9,4 @@ This list represents some known security tasks that must be completed.
 
 * Evaluate the source of randomness used by `ring` SystemRandom for each targeted platform.
 * Determine if generating a purely random nonce is acceptable for the CHACHA20_POLY1305 algorithm
-* How to use `ring pbkdf2::verify` to determine if the password is correct to prevent side-channel attacks
+* How to use `ring pbkdf2::verify` to determine if the password is correct to prevent timing attacks? Is it acceptable if I use `derive` and then attempt to open the encrypted file?

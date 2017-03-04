@@ -7,17 +7,15 @@ use std::fs;
 use std::path;
 use std::vec::Vec;
 use ring::aead;
-use ring::rand;
-use ring::pbkdf2;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
 
 pub struct Database {
     pub path: path::PathBuf,
-    algorithm: &'static aead::Algorithm,
+    _algorithm: &'static aead::Algorithm,
     storage: EncryptedStorage,
-    encryption_key: EncryptedStorage,
+    _encryption_key: EncryptedStorage,
 }
 
 impl Database {
@@ -39,9 +37,9 @@ impl Database {
 
         Database {
             path: path.clone(),
-            algorithm: algorithm,
+            _algorithm: algorithm,
             storage: EncryptedStorage::new(storage_path, encryption_key),
-            encryption_key: encryption_key_storage
+            _encryption_key: encryption_key_storage
         }
     }
 
@@ -61,9 +59,9 @@ impl Database {
 
         Database {
             path: path.clone(),
-            algorithm: algorithm,
+            _algorithm: algorithm,
             storage: EncryptedStorage::new(storage_path, encryption_key.to_vec()),
-            encryption_key: encryption_key_storage
+            _encryption_key: encryption_key_storage
         }
     }
 

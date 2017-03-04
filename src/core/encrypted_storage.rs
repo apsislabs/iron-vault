@@ -298,7 +298,7 @@ mod test {
 
         ignore "should write CHACHA20 POLY1305 data to a file" {
             // TODO: How to actually validate the encryption, without relying on code that we've written?
-            // Third party tools, or other?
+            // Third party tools? Other?
         }
 
         it "should be able to read the encrypted file" {
