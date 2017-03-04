@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+echo "Starting unit tests"
+RUST_TEST_THREADS=1 cargo test
+if [ $? -ne 0 ]; then
+    echo ""
+    echo ""
+    echo "Unit tests failed; push aborted!"
+    exit 1
+fi
+
+RUST_TEST_THREADS=1 cargo test -- --ignored
+if [ $? -ne 0 ]; then
+    echo ""
+    echo ""
+    echo "Unit tests failed; push aborted!"
+    exit 1
+fi
+
+echo
+echo "All pre-push checks passed! Pushing to remote"

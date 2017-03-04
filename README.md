@@ -19,15 +19,23 @@ In the future there will also exist:
 * An electron application to provide a native desktop application for Iron Vault.
 * A Chrome and Firefox browser extension to provide a browser application for Iron Vault.
 
-## Development Dependencies
+## Development
+
+### Getting Started
+
+Ensure you have all of the development dependencies installed (see below). Once that's done, run `bin/setup` to initialize the repository.
+
+Building everything can be run with `cargo build`.
+
+### Development Dependencies
 
 * Rust (https://www.rust-lang.org/en-US/install.html)
 
-## Building
+### Building
 
 To build simply run `cargo build`.
 
-## Testing
+### Testing
 
 Tests are run with Cargo. Unfortunately, due to the environment variable testing in
 `database.rs`, tests can only be run on a single thread or you will see some
@@ -43,4 +51,4 @@ Some of the PBKDF2 tests are slow and are ignored for the main run of tests. To 
 RUST_TEST_THREADS=1 cargo test -- --ignored
 ```
 
-Both sets of these tests should always be run before pushing.
+Both of these tests will be run automatically by the pre-push hooks that are installed with `bin/setup`.
