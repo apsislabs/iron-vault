@@ -23,17 +23,15 @@ pub fn generate_encryption_key(algorithm: &'static aead::Algorithm) -> Vec<u8> {
     return encryption_key;
 }
 
-pub fn derive_key(algorithm: &'static aead::Algorithm, password: String) -> Vec<u8> {
-    let key_len = algorithm.key_len();
+pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: String) -> Vec<u8> {
 
-    let salt: [u8; 16] = [ // TODO: Generate a new salt
-        0xd6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52,
-        0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a
-    ];
+    assert!(salt.len() > 4);
+
+    let key_len = algorithm.key_len();
 
     let mut derived_key: Vec<u8> = Vec::with_capacity(key_len);
     derived_key.resize(key_len, 0);
-    pbkdf2::derive(&pbkdf2::HMAC_SHA256, iterations(password.clone()), &salt,
+    pbkdf2::derive(&pbkdf2::HMAC_SHA256, iterations(password.clone()), salt,
                        password.as_bytes(), &mut derived_key);
 
     return derived_key;
@@ -96,25 +94,40 @@ mod test {
     }
 
     describe! derive_key {
-        ignore "should produce keys of the correct length" {
+        before_each {
+            let _salt: [u8; 16] = [0xd6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52, 0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a];
             let alg = &aead::CHACHA20_POLY1305;
-            assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
+        }
+
+        failing "should fail if the salt is too short" {
+            let _salt: [u8; 2] = [0xd6, 0x26];
+            derive_key(alg, &_salt, "hello".to_string());
+        }
+
+        ignore "should derive different keys for the same password with different salts" {
+            let key_a = derive_key(alg, &_salt, "hello".to_string());
+            let _salt: [u8; 16] = [0xe6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52, 0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a];
+            let key_b = derive_key(alg, &_salt, "hello".to_string());
+
+            assert!(key_a != key_b);
+        }
+
+        ignore "should produce keys of the correct length" {
+            assert!(derive_key(alg, &_salt, "hello".to_string()).len() == alg.key_len());
 
             let alg = &aead::AES_128_GCM;
-            assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
+            assert!(derive_key(alg, &_salt, "hello".to_string()).len() == alg.key_len());
 
             let alg = &aead::AES_256_GCM;
-            assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
+            assert!(derive_key(alg, &_salt, "hello".to_string()).len() == alg.key_len());
         }
 
         ignore "should derive the same key for the same password" {
-            let alg = &aead::CHACHA20_POLY1305;
-            assert!(derive_key(alg, String::from("hello")) == derive_key(alg, String::from("hello")));
+            assert!(derive_key(alg, &_salt, "hello".to_string()) == derive_key(alg, &_salt, "hello".to_string()));
         }
 
         ignore "should derive different keys for different passwords" {
-            let alg = &aead::CHACHA20_POLY1305;
-            assert!(derive_key(alg, String::from("hello")) != derive_key(alg, String::from("hell")));
+            assert!(derive_key(alg, &_salt, "hello".to_string()) != derive_key(alg, &_salt, "hell".to_string()));
         }
     }
 }

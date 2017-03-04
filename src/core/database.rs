@@ -27,7 +27,12 @@ impl Database {
         let storage_path = storage_path(&path);
         let encrypted_key_path = encrypted_key_path(&path);
 
-        let key = keys::derive_key(algorithm, password);
+        let salt: [u8; 16] = [ // TODO: Generate a new salt
+            0xd6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52,
+            0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a
+        ];
+
+        let key = keys::derive_key(algorithm, &salt, password);
 
         println!("Derived key of length {}", key.len());
 
@@ -49,7 +54,12 @@ impl Database {
         let storage_path = storage_path(&path);
         let encrypted_key_path = encrypted_key_path(&path);
 
-        let key = keys::derive_key(algorithm, password);
+        let salt: [u8; 16] = [ // TODO: Retrieve the salt
+            0xd6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52,
+            0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a
+        ];
+
+        let key = keys::derive_key(algorithm, &salt, password);
 
         println!("Derived key of length {}", key.len());
 
