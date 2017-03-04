@@ -24,13 +24,13 @@ impl EncryptedStorage {
     /// CHACHA20_POLY1305 key (256 bits long or 32 bytes long).
     ///
     /// # Examples
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use std::path::PathBuf;
     /// use vault_core::encrypted_storage::EncryptedStorage;
     ///
     /// let path         = PathBuf::from("test/database");
     /// let key: Vec<u8> = b"7b6300f7dc21c9fddeaa71f439d53b55".to_vec();
-    /// EncryptedStorage::new(path, &key);
+    /// EncryptedStorage::new(path, key);
     /// ```
     pub fn new(path: path::PathBuf, key: Vec<u8>) -> EncryptedStorage {
         EncryptedStorage {
@@ -298,7 +298,7 @@ mod test {
 
         ignore "should write CHACHA20 POLY1305 data to a file" {
             // TODO: How to actually validate the encryption, without relying on code that we've written?
-            // Third party tools, or other?
+            // Third party tools? Other?
         }
 
         it "should be able to read the encrypted file" {

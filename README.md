@@ -36,3 +36,11 @@ intermittent errors. To run tests execute:
 ```
 RUST_TEST_THREADS=1 cargo test
 ```
+
+Some of the PBKDF2 tests are slow and are ignored for the main run of tests. To test these functions run:
+
+```
+RUST_TEST_THREADS=1 cargo test -- --ignored
+```
+
+Both sets of these tests should always be run before pushing.

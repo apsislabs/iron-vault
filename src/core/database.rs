@@ -1,25 +1,75 @@
-use encrypted_storage;
+
+use encrypted_storage::EncryptedStorage;
+use keys;
 
 use std::env;
 use std::fs;
 use std::path;
 use std::vec::Vec;
+use ring::aead;
+use ring::rand;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
-static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/database";
+static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
 
 pub struct Database {
     pub path: path::PathBuf,
-    storage: encrypted_storage::EncryptedStorage,
+    _algorithm: &'static aead::Algorithm,
+    storage: EncryptedStorage,
+    _encryption_key: EncryptedStorage,
 }
 
 impl Database {
-    pub fn new(key: Vec<u8>) -> Database {
+
+    pub fn create(password: String) -> Database {
+
         let path = resolve_database_path();
+        let algorithm = &aead::CHACHA20_POLY1305;
+        let storage_path = storage_path(&path);
+        let encrypted_key_path = encrypted_key_path(&path);
+
+        let salt: [u8; 16] = [ // TODO: Generate a new salt
+            0xd6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52,
+            0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a
+        ];
+
+        let key = keys::derive_key(algorithm, &salt, password).expect("Should derive the key");
+
+        let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
+        let random = rand::SystemRandom::new(); // TODO: Use a single random value
+        let encryption_key = keys::generate_key(algorithm, &random).expect("Should generate new encryption key");
+        encryption_key_storage.write(&encryption_key).expect("Should write new encryption key");
 
         Database {
             path: path.clone(),
-            storage: encrypted_storage::EncryptedStorage::new(path, key),
+            _algorithm: algorithm,
+            storage: EncryptedStorage::new(storage_path, encryption_key),
+            _encryption_key: encryption_key_storage
+        }
+    }
+
+    pub fn open(password: String) -> Database {
+        let path = resolve_database_path();
+        let algorithm = &aead::CHACHA20_POLY1305;
+        let storage_path = storage_path(&path);
+        let encrypted_key_path = encrypted_key_path(&path);
+
+        let salt: [u8; 16] = [ // TODO: Retrieve the salt
+            0xd6, 0x26, 0x98, 0xda, 0xf4, 0xdc, 0x50, 0x52,
+            0x24, 0xf2, 0x27, 0xd1, 0xfe, 0x39, 0x01, 0x8a
+        ];
+
+        let key = keys::derive_key(algorithm, &salt, password).expect("Should derive the key");;
+
+        let mut sealed_buffer: Vec<u8> = Vec::new();
+        let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
+        let encryption_key = encryption_key_storage.read(&mut sealed_buffer).expect("Should have opened DB correctly");
+
+        Database {
+            path: path.clone(),
+            _algorithm: algorithm,
+            storage: EncryptedStorage::new(storage_path, encryption_key.to_vec()),
+            _encryption_key: encryption_key_storage
         }
     }
 
@@ -45,6 +95,18 @@ impl Database {
     }
 }
 
+fn encrypted_key_path(path: &path::PathBuf) -> path::PathBuf {
+    let mut encrypted_key_path = path.clone();
+    encrypted_key_path.push("key");
+    return encrypted_key_path;
+}
+
+fn storage_path(path: &path::PathBuf) -> path::PathBuf {
+    let mut storage_path = path.clone();
+    storage_path.push("storage");
+    return storage_path;
+}
+
 fn determine_database_path(path: Option<&str>) -> String {
     // 1 - Explicit Override Resolution
     if path.is_some() {
@@ -67,12 +129,7 @@ fn resolve_database_path() -> path::PathBuf {
 
     let path = path::PathBuf::from(&path);
 
-    match path.parent() {
-        Some(parent) => {
-            fs::create_dir_all(parent).expect("Failed to create the directory for the database")
-        }
-        _ => panic!("The path didn't have a parent attribute."),
-    }
+    fs::create_dir_all(&path).expect("Failed to create the directory for the database");
 
     return path;
 }
@@ -102,7 +159,7 @@ mod test {
         }
 
         it "uses the hardcoded path if no other form is available" {
-            assert!(determine_database_path(None).ends_with("/.ironvault/database"));
+            assert!(determine_database_path(None).ends_with("/.ironvault/"));
         }
     }
 
@@ -127,7 +184,7 @@ mod test {
 
             assert!(path::Path::new("test_dir").is_dir());
             assert!(path::Path::new("test_dir/something").is_dir());
-            assert!(!path::Path::new("test_dir/something/ironvault").is_dir());
+            assert!(path::Path::new("test_dir/something/ironvault").is_dir());
         }
     }
 
