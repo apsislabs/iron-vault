@@ -11,12 +11,12 @@ const ITERATIONS_EXTENSION_COUNT: u32 = 10000;
 // Next Steps:
 // 3. Documentation.
 
-pub fn generate_key(algorithm: &'static aead::Algorithm) -> Vec<u8> {
-    let key_len = algorithm.key_len();
-    let rng = rand::SystemRandom::new();
+pub fn generate_key(algorithm: &'static aead::Algorithm, random: &rand::SecureRandom) -> Vec<u8> {
+    // Create a vector with enough space for our key
+    let mut encryption_key: Vec<u8> = vec![0; algorithm.key_len()];
 
-    let mut encryption_key: Vec<u8> = vec![0; key_len];
-    rng.fill(&mut encryption_key).expect("Should have generated the key successfully");
+    // Fill the key using the system's secure random number generation provided by ring.
+    random.fill(&mut encryption_key).expect("Should have generated the key successfully");
 
     return encryption_key;
 }
@@ -25,10 +25,10 @@ pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: St
 
     assert!(salt.len() > 4);
 
-    let key_len = algorithm.key_len();
+    // Create a vector with enough space for our key
+    let mut derived_key: Vec<u8> = vec![0; algorithm.key_len()];
 
-    let mut derived_key: Vec<u8> = Vec::with_capacity(key_len);
-    derived_key.resize(key_len, 0);
+    // Derive the key using ring (thanks ring!)
     pbkdf2::derive(&pbkdf2::HMAC_SHA256, iterations(password.clone()), salt,
                        password.as_bytes(), &mut derived_key);
 
@@ -39,9 +39,12 @@ pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: St
 /// make GPU attacks more challenging, as the attack process isn't as parallelizable given the need
 /// to branch based on the hash value of the string.
 fn iterations(password: String) -> u32 {
+    // Calculate a (non-secure) hash of the password, to determine how many extra steps we will use
+    // based on this password.
     let mut hasher = DefaultHasher::new();
     password.hash(&mut hasher);
-    let iteration_extensions = hasher.finish() as u32 % ITERATIONS_EXTENSION_COUNT;
+    let hash = hasher.finish() as u32;
+    let iteration_extensions = hash % ITERATIONS_EXTENSION_COUNT;
 
     let iterations: u32 = ITERATIONS_BASE_COUNT + iteration_extensions;
 
@@ -56,20 +59,24 @@ mod test {
     use super::*;
 
     describe! generate_key {
+        before_each {
+            let random = &rand::SystemRandom::new();
+        }
+
         it "should produce keys of the correct length" {
             let alg = &aead::CHACHA20_POLY1305;
-            assert!(generate_key(alg).len() == alg.key_len());
+            assert!(generate_key(alg, random).len() == alg.key_len());
 
             let alg = &aead::AES_128_GCM;
-            assert!(generate_key(alg).len() == alg.key_len());
+            assert!(generate_key(alg, random).len() == alg.key_len());
 
             let alg = &aead::AES_256_GCM;
-            assert!(generate_key(alg).len() == alg.key_len());
+            assert!(generate_key(alg, random).len() == alg.key_len());
         }
 
         it "should produce different keys" {
             let alg = &aead::CHACHA20_POLY1305;
-            assert!(generate_key(alg) != generate_key(alg));
+            assert!(generate_key(alg, random) != generate_key(alg, random));
         }
     }
 

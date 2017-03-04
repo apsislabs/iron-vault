@@ -7,6 +7,7 @@ use std::fs;
 use std::path;
 use std::vec::Vec;
 use ring::aead;
+use ring::rand;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
@@ -35,7 +36,8 @@ impl Database {
         let key = keys::derive_key(algorithm, &salt, password);
 
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
-        let encryption_key = keys::generate_key(algorithm);
+        let random = rand::SystemRandom::new(); // TODO: Use a single random value
+        let encryption_key = keys::generate_key(algorithm, &random);
         encryption_key_storage.write(&encryption_key).expect("Should write new encryption key");
 
         Database {
