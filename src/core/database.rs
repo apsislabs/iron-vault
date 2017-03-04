@@ -1,5 +1,6 @@
 
 use encrypted_storage::EncryptedStorage;
+use keys;
 
 use std::env;
 use std::fs;
@@ -7,6 +8,7 @@ use std::path;
 use std::vec::Vec;
 use ring::aead;
 use ring::rand;
+use ring::pbkdf2;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
@@ -20,14 +22,19 @@ pub struct Database {
 
 impl Database {
 
-    pub fn create(key: Vec<u8>) -> Database {
+    pub fn create(password: String) -> Database {
+
         let path = resolve_database_path();
         let algorithm = &aead::CHACHA20_POLY1305;
         let storage_path = storage_path(&path);
         let encrypted_key_path = encrypted_key_path(&path);
 
+        let key = keys::derive_key(algorithm, password);
+
+        println!("Derived key of length {}", key.len());
+
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
-        let encryption_key = generate_encryption_key(algorithm);
+        let encryption_key = keys::generate_encryption_key(algorithm);
         encryption_key_storage.write(&encryption_key).expect("Should write new encryption key");
 
         Database {
@@ -38,11 +45,15 @@ impl Database {
         }
     }
 
-    pub fn open(key: Vec<u8>) -> Database {
+    pub fn open(password: String) -> Database {
         let path = resolve_database_path();
         let algorithm = &aead::CHACHA20_POLY1305;
         let storage_path = storage_path(&path);
         let encrypted_key_path = encrypted_key_path(&path);
+
+        let key = keys::derive_key(algorithm, password);
+
+        println!("Derived key of length {}", key.len());
 
         let mut sealed_buffer: Vec<u8> = Vec::new();
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
@@ -76,18 +87,6 @@ impl Database {
             .write(buffer)
             .expect("Should have written to encrypted storage successfully.");
     }
-
-    pub fn encryption_key(&self) -> Vec<u8> {
-        return generate_encryption_key(&self.algorithm);
-    }
-
-    // pub fn storage_path(&self) -> String {
-    //     return format!("{}{}", &self.path().to_string_lossy(), "storage");
-    // }
-
-    // pub fn storage_path(&self) -> path::PathBuf {
-    //     return storage_path(&self.path);
-    // }
 }
 
 fn encrypted_key_path(path: &path::PathBuf) -> path::PathBuf {
@@ -127,16 +126,6 @@ fn resolve_database_path() -> path::PathBuf {
     fs::create_dir_all(&path).expect("Failed to create the directory for the database");
 
     return path;
-}
-
-fn generate_encryption_key(algorithm: &'static aead::Algorithm) -> Vec<u8> {
-    let key_len = algorithm.key_len();
-    let rng = rand::SystemRandom::new();
-
-    let mut encryption_key: Vec<u8> = vec![0; key_len];
-    rng.fill(&mut encryption_key).expect("Should have generated the key successfully");
-
-    return encryption_key;
 }
 
 #[cfg(test)]

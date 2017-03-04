@@ -5,11 +5,11 @@ extern crate vault_core;
 
 use vault_core::database::Database;
 
+static PASSWORD: &'static str = "My voice is my password, verify me";
 static KEY: &'static [u8] = b"7b6300f7dc21c9fddeaa71f439d53b55";
 
 pub fn main() {
-    let db = Database::create(KEY.to_vec());
-    // let db = Database::new(KEY.to_vec());
+    let db = Database::create(String::from(PASSWORD));
     let msg = String::from("This is a test of the encrypted storage and database mechanisms");
 
     db.write(msg.as_bytes());
@@ -22,7 +22,7 @@ pub fn main() {
 
     // Re-open the database and try again
     let mut s_again = String::new();
-    let reopened_db = Database::open(KEY.to_vec());
+    let reopened_db = Database::open(String::from(PASSWORD));
     reopened_db.read_string(&mut s_again);
     println!("Message from reopend db: {}", s_again);
 
