@@ -34,10 +34,8 @@ impl Database {
 
         let key = keys::derive_key(algorithm, &salt, password);
 
-        println!("Derived key of length {}", key.len());
-
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);
-        let encryption_key = keys::generate_encryption_key(algorithm);
+        let encryption_key = keys::generate_key(algorithm);
         encryption_key_storage.write(&encryption_key).expect("Should write new encryption key");
 
         Database {
@@ -60,8 +58,6 @@ impl Database {
         ];
 
         let key = keys::derive_key(algorithm, &salt, password);
-
-        println!("Derived key of length {}", key.len());
 
         let mut sealed_buffer: Vec<u8> = Vec::new();
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path, key);

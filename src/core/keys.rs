@@ -9,11 +9,9 @@ const ITERATIONS_BASE_COUNT     : u32 = 100000;
 const ITERATIONS_EXTENSION_COUNT: u32 = 10000;
 
 // Next Steps:
-// 1. Randomize and store/retrieve salt
-// 2. Code cleanup and last unit tests
 // 3. Documentation.
 
-pub fn generate_encryption_key(algorithm: &'static aead::Algorithm) -> Vec<u8> {
+pub fn generate_key(algorithm: &'static aead::Algorithm) -> Vec<u8> {
     let key_len = algorithm.key_len();
     let rng = rand::SystemRandom::new();
 
@@ -57,21 +55,21 @@ fn iterations(password: String) -> u32 {
 mod test {
     use super::*;
 
-    describe! generate_encryption_key {
+    describe! generate_key {
         it "should produce keys of the correct length" {
             let alg = &aead::CHACHA20_POLY1305;
-            assert!(generate_encryption_key(alg).len() == alg.key_len());
+            assert!(generate_key(alg).len() == alg.key_len());
 
             let alg = &aead::AES_128_GCM;
-            assert!(generate_encryption_key(alg).len() == alg.key_len());
+            assert!(generate_key(alg).len() == alg.key_len());
 
             let alg = &aead::AES_256_GCM;
-            assert!(generate_encryption_key(alg).len() == alg.key_len());
+            assert!(generate_key(alg).len() == alg.key_len());
         }
 
         it "should produce different keys" {
             let alg = &aead::CHACHA20_POLY1305;
-            assert!(generate_encryption_key(alg) != generate_encryption_key(alg));
+            assert!(generate_key(alg) != generate_key(alg));
         }
     }
 
