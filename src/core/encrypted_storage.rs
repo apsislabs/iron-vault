@@ -30,7 +30,7 @@ impl EncryptedStorage {
     ///
     /// let path         = PathBuf::from("test/database");
     /// let key: Vec<u8> = b"7b6300f7dc21c9fddeaa71f439d53b55".to_vec();
-    /// EncryptedStorage::new(path, &key);
+    /// EncryptedStorage::new(path, key);
     /// ```
     pub fn new(path: path::PathBuf, key: Vec<u8>) -> EncryptedStorage {
         EncryptedStorage {

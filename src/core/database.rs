@@ -151,7 +151,7 @@ mod test {
         }
 
         it "uses the hardcoded path if no other form is available" {
-            assert!(determine_database_path(None).ends_with("/.ironvault/database"));
+            assert!(determine_database_path(None).ends_with("/.ironvault/"));
         }
     }
 
@@ -176,7 +176,7 @@ mod test {
 
             assert!(path::Path::new("test_dir").is_dir());
             assert!(path::Path::new("test_dir/something").is_dir());
-            assert!(!path::Path::new("test_dir/something/ironvault").is_dir());
+            assert!(path::Path::new("test_dir/something/ironvault").is_dir());
         }
     }
 
