@@ -20,13 +20,20 @@ Version 0.2.0 release.
 ### Milestone 1 - Read and Write Encrypted Files
 **In Progress**
 * **Completed** Read and Write to simple encrypted files
-* **In Progress** Generate and store an encryption key file
-* Store a "encryption data" file with dummy data using the encryption key.
-* Use a key derivation function to encrypt the encryption key file with a master password
+* **Completed** Generate and store an encryption key file
+* **Completed** Use a key derivation function to encrypt the encryption key file with a master password
+* **Completed** Store a "encryption data" file with dummy data using the encryption key.
+* Clean up database implementation
 
 ### Milestone 2 - Store And Retrieve Named Passwords
+* Create Record structure.
+* Serialize Record structure to JSON.
+* Deserialized Record structure from JSON.
+* Update Database to be able to store new Password.
+* Update Database to be able to retrieve Password.
 
 ### Milestone 3 - Store And Retrieve Arbitrary Metadata for Named Passwords
+* Add named metadata attributes to Record(?)
 
 ### Milestone 4 - Store Index for Passwords
 
