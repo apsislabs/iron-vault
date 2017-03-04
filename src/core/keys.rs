@@ -29,3 +29,49 @@ pub fn derive_key(algorithm: &'static aead::Algorithm, password: String) -> Vec<
 
     return derived_key;
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    describe! generate_encryption_key {
+        it "should produce keys of the correct length" {
+            let alg = &aead::CHACHA20_POLY1305;
+            assert!(generate_encryption_key(alg).len() == alg.key_len());
+
+            let alg = &aead::AES_128_GCM;
+            assert!(generate_encryption_key(alg).len() == alg.key_len());
+
+            let alg = &aead::AES_256_GCM;
+            assert!(generate_encryption_key(alg).len() == alg.key_len());
+        }
+
+        it "should produce different keys" {
+            let alg = &aead::CHACHA20_POLY1305;
+            assert!(generate_encryption_key(alg) != generate_encryption_key(alg));
+        }
+    }
+
+    describe! derive_key {
+        it "should produce keys of the correct length" {
+            let alg = &aead::CHACHA20_POLY1305;
+            assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
+
+            let alg = &aead::AES_128_GCM;
+            assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
+
+            let alg = &aead::AES_256_GCM;
+            assert!(derive_key(alg, String::from("hello")).len() == alg.key_len());
+        }
+
+        it "should derive the same key for the same password" {
+            let alg = &aead::CHACHA20_POLY1305;
+            assert!(derive_key(alg, String::from("hello")) == derive_key(alg, String::from("hello")));
+        }
+
+        it "should derive different keys for different passwords" {
+            let alg = &aead::CHACHA20_POLY1305;
+            assert!(derive_key(alg, String::from("hello")) != derive_key(alg, String::from("hell")));
+        }
+    }
+}
