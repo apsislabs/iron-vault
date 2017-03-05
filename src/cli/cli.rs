@@ -11,7 +11,7 @@ static PASSWORD: &'static str = "My voice is my password, verify me";
 
 pub fn main() {
     let db = Database::create(String::from(PASSWORD));
-    let record = Record::new_password("My First Password".to_string(), "noah".to_string(), "password1".to_string());
+    let record = Record::new_login("My First Password".to_string(), "noah".to_string(), "password1".to_string());
 
     println!("Writing record {:?} to database {}.", record, db.path.display());
     db.write_record(record);
