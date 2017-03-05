@@ -23,17 +23,18 @@ Version 0.2.0 release.
 * **Completed** Generate and store an encryption key file
 * **Completed** Use a key derivation function to encrypt the encryption key file with a master password
 * **Completed** Store a "encryption data" file with dummy data using the encryption key.
-* Clean up database implementation
 
 ### Milestone 2 - Store And Retrieve Named Passwords
-* Create Record structure.
-* Serialize Record structure to JSON.
-* Deserialized Record structure from JSON.
+**In Progress**
+* **Completed** Create Record structure.
+* **Completed** Serialize Record structure to JSON.
+* **Completed** Deserialized Record structure from JSON.
 * Update Database to be able to store new Password.
 * Update Database to be able to retrieve Password.
+* Clean up database implementation
 
 ### Milestone 3 - Store And Retrieve Arbitrary Metadata for Named Passwords
-* Add named metadata attributes to Record(?)
+* Update record to be able to easily fetch metadata attributes
 
 ### Milestone 4 - Store Index for Passwords
 
