@@ -1,6 +1,6 @@
-
 use encrypted_storage::EncryptedStorage;
 use keys;
+use record;
 
 use std::env;
 use std::fs;
@@ -8,9 +8,27 @@ use std::path;
 use std::vec::Vec;
 use ring::aead;
 use ring::rand;
+use serde_json;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Configuration {
+    name: String,
+    otherdata: String,
+}
+
+impl Configuration {
+    pub fn to_json(&self) -> String {
+        return serde_json::to_string(self).expect("It worked");
+    }
+
+    pub fn from_json(json: String) -> Configuration {
+        return serde_json::from_str(&json).unwrap();
+    }
+}
 
 pub struct Database {
     pub path: path::PathBuf,
@@ -73,7 +91,26 @@ impl Database {
         }
     }
 
-    pub fn read_string(&self, buffer: &mut String) {
+    pub fn config(&self) -> Configuration {
+        Configuration {
+            name: "My Database Name".to_string(),
+            otherdata: "Some sweet data will go here".to_string(),
+        }
+    }
+
+    pub fn write_record(&self, record: record::Record) {
+        let record_json = record.to_json().expect("Should have serialized record properly");
+        self.write(record_json.as_bytes())
+    }
+
+    pub fn read_record(&self) -> record::Record {
+        let mut json = String::new();
+        self.read_string(&mut json);
+
+        return record::Record::from_json(json).expect("Record should have been deserialized properly");
+    }
+
+    fn read_string(&self, buffer: &mut String) {
         let mut sealed_buffer: Vec<u8> = Vec::new();
 
         let plaintext = self.read(&mut sealed_buffer);
@@ -82,13 +119,13 @@ impl Database {
         buffer.push_str(&String::from_utf8_lossy(&plaintext));
     }
 
-    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a [u8] {
+    fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a [u8] {
         return &self.storage
             .read(buffer)
             .expect("Should have read encrypted storage successfully.");
     }
 
-    pub fn write(&self, buffer: &[u8]) {
+    fn write(&self, buffer: &[u8]) {
         &self.storage
             .write(buffer)
             .expect("Should have written to encrypted storage successfully.");

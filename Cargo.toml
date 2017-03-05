@@ -15,3 +15,10 @@ path = "src/cli/cli.rs"
 ring = "0.7.1" # Used for core crypto
 odds = "0.2.25" # Used for Vector Extensions
 stainless = "*" # Used for unit testing
+
+# Used for serializing database and configurations
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"
+
+uuid = { version = "0.3", features = ["v4"] }
