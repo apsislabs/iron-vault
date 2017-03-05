@@ -24,10 +24,13 @@ The goal of version 0.2.0 is to develop `vault_core` to the point that it could 
 * **Completed** Deserialized Record structure from JSON.
 * Update Database to be able to store new Password.
 * Update Database to be able to retrieve Password.
-* Clean up database implementation
 
 ### Milestone 3 - Store And Retrieve Arbitrary Metadata for Named Passwords
 * Update record to be able to easily fetch metadata attributes
+
+## Milestone 4 - Clean up database implementation
+* Clean up database implementation
+* Clean up publically exposed mod
 
 ### Future Milestones TBD
 
