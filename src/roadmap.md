@@ -18,7 +18,7 @@ to demonstrate the use of `vault_core`, and will not be considered part of the
 Version 0.2.0 release.
 
 ### Milestone 1 - Read and Write Encrypted Files
-**In Progress**
+**Completed**
 * **Completed** Read and Write to simple encrypted files
 * **Completed** Generate and store an encryption key file
 * **Completed** Use a key derivation function to encrypt the encryption key file with a master password

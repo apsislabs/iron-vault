@@ -1,4 +1,3 @@
-
 use encrypted_storage::EncryptedStorage;
 use keys;
 
@@ -8,9 +7,27 @@ use std::path;
 use std::vec::Vec;
 use ring::aead;
 use ring::rand;
+use serde_json;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Configuration {
+    name: String,
+    otherdata: String,
+}
+
+impl Configuration {
+    pub fn to_json(&self) -> String {
+        return serde_json::to_string(self).expect("It worked");
+    }
+
+    pub fn from_json(json: String) -> Configuration {
+        return serde_json::from_str(&json).unwrap();
+    }
+}
 
 pub struct Database {
     pub path: path::PathBuf,
@@ -70,6 +87,13 @@ impl Database {
             _algorithm: algorithm,
             storage: EncryptedStorage::new(storage_path, encryption_key.to_vec()),
             _encryption_key: encryption_key_storage
+        }
+    }
+
+    pub fn config(&self) -> Configuration {
+        Configuration {
+            name: "My Database Name".to_string(),
+            otherdata: "Some sweet data will go here".to_string(),
         }
     }
 

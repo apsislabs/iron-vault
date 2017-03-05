@@ -4,6 +4,8 @@
 extern crate vault_core;
 
 use vault_core::database::Database;
+use vault_core::database::Configuration;
+use vault_core::record::Record;
 
 static PASSWORD: &'static str = "My voice is my password, verify me";
 
@@ -25,4 +27,19 @@ pub fn main() {
     reopened_db.read_string(&mut s_again);
     println!("Message from reopend db: {}", s_again);
 
+    let config = reopened_db.config();
+    println!("A database config: {:?}", config);
+
+    let config_json = config.to_json();
+    println!("config json: {}", config_json);
+
+    let other_config = Configuration::from_json(config_json);
+    println!("Other database config: {:?}", other_config);
+
+    let record = Record::new_password("My First Password".to_string(), "noah".to_string(), "password1".to_string());
+    println!("Generated a new password {:?}", record);
+    println!("Converted password to json: {}", record.to_json());
+
+    let other_record = Record::from_json(record.to_json());
+    println!("Password parsed from json {:?}", other_record);
 }
