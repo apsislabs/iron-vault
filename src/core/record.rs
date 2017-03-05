@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use uuid::Uuid;
 use serde_json;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -16,7 +17,7 @@ impl Record {
         entries_map.insert("password".to_string(), password);
 
         Record {
-            uuid: "1234".to_string(),
+            uuid: create_uuid(),
             name: name,
             kind: RecordKind::Password,
             entries: entries_map
@@ -30,6 +31,10 @@ impl Record {
     pub fn from_json(json: String) -> Record {
         return serde_json::from_str(&json).unwrap();
     }
+}
+
+fn create_uuid() -> String {
+    return Uuid::new_v4().to_string();
 }
 
 #[derive(Serialize, Deserialize, Debug)]

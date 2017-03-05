@@ -1,5 +1,6 @@
 use encrypted_storage::EncryptedStorage;
 use keys;
+use record;
 
 use std::env;
 use std::fs;
@@ -97,7 +98,18 @@ impl Database {
         }
     }
 
-    pub fn read_string(&self, buffer: &mut String) {
+    pub fn write_record(&self, record: record::Record) {
+        self.write(record.to_json().as_bytes())
+    }
+
+    pub fn read_record(&self) -> record::Record {
+        let mut json = String::new();
+        self.read_string(&mut json);
+
+        return record::Record::from_json(json);
+    }
+
+    fn read_string(&self, buffer: &mut String) {
         let mut sealed_buffer: Vec<u8> = Vec::new();
 
         let plaintext = self.read(&mut sealed_buffer);
@@ -106,13 +118,13 @@ impl Database {
         buffer.push_str(&String::from_utf8_lossy(&plaintext));
     }
 
-    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a [u8] {
+    fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> &'a [u8] {
         return &self.storage
             .read(buffer)
             .expect("Should have read encrypted storage successfully.");
     }
 
-    pub fn write(&self, buffer: &[u8]) {
+    fn write(&self, buffer: &[u8]) {
         &self.storage
             .write(buffer)
             .expect("Should have written to encrypted storage successfully.");
