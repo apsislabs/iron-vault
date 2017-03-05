@@ -99,14 +99,15 @@ impl Database {
     }
 
     pub fn write_record(&self, record: record::Record) {
-        self.write(record.to_json().as_bytes())
+        let record_json = record.to_json().expect("Should have serialized record properly");
+        self.write(record_json.as_bytes())
     }
 
     pub fn read_record(&self) -> record::Record {
         let mut json = String::new();
         self.read_string(&mut json);
 
-        return record::Record::from_json(json);
+        return record::Record::from_json(json).expect("Record should have been deserialized properly");
     }
 
     fn read_string(&self, buffer: &mut String) {

@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use serde_json;
 
+// Next Steps:
+// Unit Tests
+
 #[derive(Serialize, Deserialize, Debug)]
 /// Record is an entry in the password database. The `kind` attribute will specify what types of
 /// entries exist in the `entries` map.
@@ -47,13 +50,13 @@ impl Record {
     }
 
     /// Serialize this Record to json
-    pub fn to_json(&self) -> String {
-        return serde_json::to_string(self).expect("It worked");
+    pub fn to_json(&self) -> serde_json::Result<String> {
+        return serde_json::to_string(self);
     }
 
     /// Deserialize this record from previously serialized JSON
-    pub fn from_json(json: String) -> Record {
-        return serde_json::from_str(&json).unwrap();
+    pub fn from_json(json: String) -> serde_json::Result<Record> {
+        return serde_json::from_str(&json);
     }
 }
 
@@ -64,4 +67,26 @@ pub enum RecordKind {
 
 fn create_uuid() -> String {
     return Uuid::new_v4().to_string();
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    describe! new_login {
+        it "should instantiate with the correct settings" {
+            let record = Record::new_login("My Bank Account".to_string(), "myemail@example.com".to_string(), "password1".to_string());
+            assert_eq!(record.name, "My Bank Account");
+            assert_eq!(record.entries.get(&"username".to_string()), Some(&"myemail@example.com".to_string()));
+            assert_eq!(record.entries.get(&"password".to_string()), Some(&"password1".to_string()));
+        }
+
+        it "should generate unique uuids" {
+            let record_a = Record::new_login("My Bank Account".to_string(), "myemail@example.com".to_string(), "password1".to_string());
+            let record_b = Record::new_login("My Bank Account".to_string(), "myemail@example.com".to_string(), "password1".to_string());
+
+            assert!(record_a.uuid != record_b.uuid);
+            assert!(record_a.name == record_b.name);
+        }
+    }
 }
