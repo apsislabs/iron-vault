@@ -2,9 +2,6 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use serde_json;
 
-// Next Steps:
-// Unit Tests
-
 #[derive(Serialize, Deserialize, Debug)]
 /// Record is an entry in the password database. The `kind` attribute will specify what types of
 /// entries exist in the `entries` map.
@@ -60,7 +57,7 @@ impl Record {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum RecordKind {
     Login
 }
@@ -72,6 +69,7 @@ fn create_uuid() -> String {
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde_json::Value;
 
     describe! new_login {
         it "should instantiate with the correct settings" {
@@ -87,6 +85,39 @@ mod test {
 
             assert!(record_a.uuid != record_b.uuid);
             assert!(record_a.name == record_b.name);
+        }
+    }
+
+    describe! serialization {
+        it "should serialize and deserialize into equivalent record" {
+            let record_a = Record::new_login("My Bank Account".to_string(), "myemail@example.com".to_string(), "password1".to_string());
+            let json = record_a.to_json().unwrap();
+            let record_b = Record::from_json(json).unwrap();
+
+            assert_eq!(record_a.uuid, record_b.uuid);
+            assert_eq!(record_a.name, record_b.name);
+            assert_eq!(record_a.kind, record_b.kind);
+        }
+
+        it "should serialize to known json" {
+            let record_a = Record::new_login("My Bank Account".to_string(), "myemail@example.com".to_string(), "password1".to_string());
+            let json = record_a.to_json().unwrap();
+            let json: Value = serde_json::from_str(&json).unwrap();
+
+            assert_eq!("My Bank Account", json["name"]);
+            assert_eq!("Login", json["kind"]);
+            assert_eq!("myemail@example.com", json["entries"]["username"]);
+            assert_eq!("password1", json["entries"]["password"]);
+        }
+
+        it "should deserialize to known json" {
+            let json = "{\"uuid\":\"60f1e42d-5eec-47cd-9377-fda6af2be692\",\"name\":\"My Bank Account\",\"kind\":\"Login\",\"entries\":{\"username\":\"myemail@example.com\",\"password\":\"password1\"}}".to_string();
+
+            let record = Record::from_json(json).unwrap();
+
+            assert_eq!("60f1e42d-5eec-47cd-9377-fda6af2be692", record.uuid);
+            assert_eq!("My Bank Account", record.name);
+            assert_eq!(RecordKind::Login, record.kind);
         }
     }
 }
