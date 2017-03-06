@@ -33,6 +33,7 @@ impl EncryptedStorage {
     /// EncryptedStorage::new(path, key);
     /// ```
     pub fn new(path: path::PathBuf, key: Vec<u8>) -> EncryptedStorage {
+        // CONFIGURABLE
         EncryptedStorage {
             path: path,
             key: key,

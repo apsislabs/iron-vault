@@ -16,6 +16,7 @@ use serde_json;
 /// table. For example a `RecordKind::Login` expects a `username` and `password` values to be set.
 /// However, as a user is not _required_ to fill out any of these fields, all code should be able to
 /// handle some of these expected fields to be missing from the entries table.
+#[derive(Clone)]
 pub struct Record {
     pub uuid: String,
     pub name: String,
@@ -81,7 +82,7 @@ impl Record {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum RecordKind {
     Login
 }

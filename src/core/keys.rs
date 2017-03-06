@@ -8,8 +8,9 @@ use ring::rand;
 use ring::pbkdf2;
 
 // CONFIGURABLE
-const ITERATIONS_BASE_COUNT     : u32 = 100000;
-const ITERATIONS_EXTENSION_COUNT: u32 = 10000;
+const SALT_LEN                  : usize = 16;
+const ITERATIONS_BASE_COUNT     : u32   = 100000;
+const ITERATIONS_EXTENSION_COUNT: u32   = 10000;
 
 /// Generate a new key for the given algorithm using the given source of randomness.
 ///
@@ -48,6 +49,16 @@ pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: St
     return Ok(derived_key);
 }
 
+/// Generates a salt that can be used when deriving a key.
+//
+/// # Errors
+/// * `KeyError::SaltGenerationError` if the source of randomness throws an error
+pub fn generate_salt(random: &rand::SecureRandom) -> Result<Vec<u8>, KeyError> {
+    let mut salt: Vec<u8> = vec![0; SALT_LEN];
+    random.fill(&mut salt).map_err(|_| KeyError::SaltGenerationError)?;
+    return Ok(salt);
+}
+
 /// Determine the total number of iterations to use for the given password. Theoretically this will
 /// make GPU attacks more challenging, as the attack process isn't as parallelizable given the need
 /// to branch based on the hash value of the string.
@@ -70,6 +81,7 @@ fn iterations(password: String) -> u32 {
 #[derive(Debug)]
 pub enum KeyError {
     KeyGenerationError,
+    SaltGenerationError,
     SaltLengthError,
 }
 
@@ -83,6 +95,7 @@ impl fmt::Display for KeyError {
             KeyError::SaltLengthError => {
                 write!(f, "The given salt was too short.")
             }
+            KeyError::SaltGenerationError => write!(f, "There was a problem generating the salt from the system's random values.")
         }
     }
 }
@@ -95,6 +108,9 @@ impl error::Error for KeyError {
             }
             KeyError::SaltLengthError => {
                 "The given salt was too short."
+            }
+            KeyError::SaltGenerationError => {
+                "There was a problem generating the salt from the system's random values."
             }
         }
     }

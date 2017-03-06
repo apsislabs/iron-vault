@@ -3,45 +3,61 @@
 
 extern crate vault_core;
 
-use vault_core::database::Database;
-// use vault_core::database::Configuration;
+use std::env;
+
+use vault_core::database::Vault;
 use vault_core::record::Record;
 
 static PASSWORD: &'static str = "My voice is my password, verify me";
 
+enum IronVaultAction {
+    Create,
+    Add,
+    Read,
+    List
+}
+
 pub fn main() {
-    let create = false;
+    let mut args = env::args();
+    let action_arg = args.nth(1).unwrap_or("l".to_string());
+    println!("action_arg: {}", action_arg);
+    let action = match action_arg.as_ref() {
+        "c" => IronVaultAction::Create,
+        "r" => IronVaultAction::Read,
+        "a" => IronVaultAction::Add,
+        _   => IronVaultAction::List,
+    };
 
-    if create {
-        let mut db = Database::create(String::from(PASSWORD));
-        db.add_record(Record::new_login("My First Password".to_string(), "noah".to_string(), "password1".to_string()));
-        db.add_record(Record::new_login("My Second Password".to_string(), "noah".to_string(), "sup3rs3cure".to_string()));
+    match action {
+        IronVaultAction::Create => {
+            Vault::create(PASSWORD.to_string(), None).expect("There was an error creating the vault");
+            println!("Created the new vault. Neat!");
+        }
+        IronVaultAction::List => {
+            let vault = Vault::open(PASSWORD.to_string(), None).expect("There was an error opening the vault!");
+            let records = vault.fetch_records();
+            let record_names: Vec<String> = records.iter().map(|ref record| record.name.clone()).collect();
 
-        println!("Wrote to the database.")
-    } else {
-        let mut db = Database::open(String::from(PASSWORD));
-        let records = db.fetch_records();
+            println!("Listing the records: {:?}", record_names);
+        }
+        IronVaultAction::Add => {
+            let mut vault = Vault::open(PASSWORD.to_string(), None).expect("There was an error opening the vault!");
+            let vault_size = vault.fetch_records().len();
+            let record_name = format!("Record {}", vault_size + 1);
+            let username = "test@example.com".to_string();
+            let password = format!("p@ssword{}", vault_size + 1);
+            let record = Record::new_login(record_name, username, password);
 
-        println!("Read from the database {} records.", records.len());
-        println!("Records: {:?}", records);
+            vault.add_record(record.clone());
+
+            println!("Added new record: {:?}", record);
+        }
+        IronVaultAction::Read => {
+            let record_name = "Record 2".to_string();
+            let vault = Vault::open(PASSWORD.to_string(), None).expect("There was an error opening the vault!");
+            let records = vault.get_records_by_name(record_name.clone());
+
+            println!("Record for {}: {:?}", record_name, records);
+        }
     }
-
-    // let db = Database::create(String::from(PASSWORD));
-    // let record = Record::new_login("My First Password".to_string(), "noah".to_string(), "password1".to_string());
-    //
-    // println!("Writing record {:?} to database {}.", record, db.path.display());
-    // db.write_record(record);
-    //
-    // let updated_record = db.read_record();
-    // println!("Read record {:?} from database.", updated_record);
-
-    // Fetch, store and reload the config...
-    // let config = db.config();
-    // println!("A database config: {:?}", config);
-    //
-    // let config_json = config.to_json();
-    // println!("config json: {}", config_json);
-    //
-    // let other_config = Configuration::from_json(config_json);
-    // println!("Other database config: {:?}", other_config);
 }
