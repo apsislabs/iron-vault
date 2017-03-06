@@ -1,6 +1,6 @@
 [package]
 name    = "iron-vault"
-version = "0.1.0"
+version = "0.1.3"
 authors = ["Noah Callaway <noah@apsis.io>"]
 
 [lib]

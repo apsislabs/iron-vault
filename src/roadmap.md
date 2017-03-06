@@ -18,19 +18,20 @@ The goal of version 0.2.0 is to develop `vault_core` to the point that it could 
 * **Completed** Store a "encryption data" file with dummy data using the encryption key.
 
 ### Milestone 2 - Store And Retrieve Named Passwords
-**In Progress**
+**Completed**
 * **Completed** Create Record structure.
 * **Completed** Serialize Record structure to JSON.
 * **Completed** Deserialized Record structure from JSON.
-* Update Database to be able to store new Password.
-* Update Database to be able to retrieve Password.
+* **Completed** Update Database to be able to store new Password.
+* **Completed** Update Database to be able to retrieve Password.
 
 ### Milestone 3 - Store And Retrieve Arbitrary Metadata for Named Passwords
-* Update record to be able to easily fetch metadata attributes
+**Completed**
+* **Completed** Update record to be able to easily fetch metadata attributes
 
 ## Milestone 4 - Clean up database implementation
 * Clean up database implementation
-* Clean up publically exposed mod
+* Clean up publicly exposed mods
 
 ### Future Milestones TBD
 

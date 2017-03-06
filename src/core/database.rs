@@ -35,6 +35,7 @@ pub struct Database {
     _algorithm: &'static aead::Algorithm,
     storage: EncryptedStorage,
     _encryption_key: EncryptedStorage,
+    records: Vec<record::Record>,
 }
 
 impl Database {
@@ -62,7 +63,8 @@ impl Database {
             path: path.clone(),
             _algorithm: algorithm,
             storage: EncryptedStorage::new(storage_path, encryption_key),
-            _encryption_key: encryption_key_storage
+            _encryption_key: encryption_key_storage,
+            records: Vec::new()
         }
     }
 
@@ -87,7 +89,8 @@ impl Database {
             path: path.clone(),
             _algorithm: algorithm,
             storage: EncryptedStorage::new(storage_path, encryption_key.to_vec()),
-            _encryption_key: encryption_key_storage
+            _encryption_key: encryption_key_storage,
+            records: Vec::new()
         }
     }
 
@@ -98,17 +101,38 @@ impl Database {
         }
     }
 
-    pub fn write_record(&self, record: record::Record) {
-        let record_json = record.to_json().expect("Should have serialized record properly");
-        self.write(record_json.as_bytes())
+    pub fn add_record(&mut self, record: record::Record) {
+        // TODO: Uncomment me
+        // self.load_records();
+        self.records.push(record);
+
+        let json = serde_json::to_string(&self.records).unwrap();
+        self.write(json.as_bytes());
     }
 
-    pub fn read_record(&self) -> record::Record {
+    pub fn fetch_records(&mut self) -> &Vec<record::Record> {
+        self.load_records();
+        return &self.records;
+    }
+
+    fn load_records(&mut self) {
         let mut json = String::new();
         self.read_string(&mut json);
 
-        return record::Record::from_json(json).expect("Record should have been deserialized properly");
+        self.records = serde_json::from_str(&json).expect("Should have read the json");
     }
+
+    // pub fn write_record(&self, record: record::Record) {
+    //     let record_json = record.to_json().expect("Should have serialized record properly");
+    //     self.write(record_json.as_bytes())
+    // }
+    //
+    // pub fn read_record(&self) -> record::Record {
+    //     let mut json = String::new();
+    //     self.read_string(&mut json);
+    //
+    //     return record::Record::from_json(json).expect("Record should have been deserialized properly");
+    // }
 
     fn read_string(&self, buffer: &mut String) {
         let mut sealed_buffer: Vec<u8> = Vec::new();
