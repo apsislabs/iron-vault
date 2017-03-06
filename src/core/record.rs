@@ -46,6 +46,30 @@ impl Record {
         }
     }
 
+    pub fn username(&self) -> Option<&String> {
+        return self.metadata(&"username".to_string());
+    }
+
+    pub fn update_username(&mut self, username: String) -> Option<String> {
+        return self.update_metadata("username".to_string(), username);
+    }
+
+    pub fn password(&self) -> Option<&String> {
+        return self.metadata(&"password".to_string());
+    }
+
+    pub fn update_password(&mut self, password: String) -> Option<String> {
+        return self.update_metadata("password".to_string(), password);
+    }
+
+    pub fn update_metadata(&mut self, meta_key: String, meta_value: String) -> Option<String> {
+        return self.entries.insert(meta_key, meta_value);
+    }
+
+    pub fn metadata(&self, meta_key: &String) -> Option<&String> {
+        return self.entries.get(meta_key);
+    }
+
     /// Serialize this Record to json
     pub fn to_json(&self) -> serde_json::Result<String> {
         return serde_json::to_string(self);
