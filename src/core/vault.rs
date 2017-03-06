@@ -271,7 +271,7 @@ mod test {
             assert!(!path::Path::new("test_dir/something").is_dir());
             assert!(!path::Path::new("test_dir/something/ironvault").is_dir());
 
-            create_vault_directory(None);
+            create_vault_directory(None).unwrap();
 
             assert!(path::Path::new("test_dir").is_dir());
             assert!(path::Path::new("test_dir/something").is_dir());
