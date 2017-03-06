@@ -4,7 +4,7 @@
 extern crate vault_core;
 
 use vault_core::database::Database;
-use vault_core::database::Configuration;
+// use vault_core::database::Configuration;
 use vault_core::record::Record;
 
 static PASSWORD: &'static str = "My voice is my password, verify me";
