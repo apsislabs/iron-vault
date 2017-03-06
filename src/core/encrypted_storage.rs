@@ -4,6 +4,7 @@ use std::error;
 use std::fmt;
 use std::fs;
 use std::path;
+use std::string;
 use std::vec::Vec;
 use ring::aead;
 use ring::rand;
@@ -58,6 +59,13 @@ impl EncryptedStorage {
         return read_encrypted(&self.path, buffer, &self.key, &self.algorithm);
     }
 
+    pub fn read_string(&self) -> Result<String, StorageError> {
+        let mut sealed_buffer: Vec<u8> = Vec::new();
+
+        let plaintext = self.read(&mut sealed_buffer)?;
+        return Ok(String::from_utf8(plaintext.to_vec())?);
+    }
+
     /// Writes the given data to the encrypted storage using the CHACHA20_POLY1305 algorithm and the key for
     /// the current storage file. This will generate a new nonce using the system provided secure
     /// random generator (using `ring`).
@@ -76,6 +84,10 @@ impl EncryptedStorage {
     pub fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
         return write_encrypted(&self.path, buffer, &self.key, &self.algorithm);
     }
+
+    pub fn write_string(&self, data: &String) -> Result<(), StorageError> {
+        return self.write(data.as_bytes());
+    }
 }
 
 #[derive(Debug)]
@@ -85,6 +97,7 @@ pub enum StorageError {
     NonceGenerationError,
     DecryptionError,
     EncryptionError,
+    StringError(string::FromUtf8Error),
     FileError(io::Error),
 }
 
@@ -111,6 +124,9 @@ impl fmt::Display for StorageError {
             StorageError::FileError(ref err) => {
                 write!(f, "There was an error accessing the file: {}", err)
             }
+            StorageError::StringError(ref err) => {
+                write!(f, "There was an error processing the file: {}", err)
+            }
         }
     }
 }
@@ -128,6 +144,7 @@ impl error::Error for StorageError {
             StorageError::DecryptionError => "The encrypted data could not be decrypted.",
             StorageError::EncryptionError => "The plaintext data could not be encrypted.",
             StorageError::FileError(ref err) => err.description(),
+            StorageError::StringError(ref err) => err.description(),
         }
     }
 
@@ -139,7 +156,14 @@ impl error::Error for StorageError {
             StorageError::DecryptionError => None,
             StorageError::EncryptionError => None,
             StorageError::FileError(ref err) => Some(err),
+            StorageError::StringError(ref err) => Some(err),
         }
+    }
+}
+
+impl From<string::FromUtf8Error> for StorageError {
+    fn from(err: string::FromUtf8Error) -> StorageError {
+        StorageError::StringError(err)
     }
 }
 
