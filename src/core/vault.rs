@@ -254,7 +254,7 @@ mod test {
         }
     }
 
-    describe! resolve_database_path {
+    describe! create_vault_directory {
         before_each {
             env::remove_var(ENVIRONMENT_KEY);
             remove_test_dir();
@@ -271,7 +271,7 @@ mod test {
             assert!(!path::Path::new("test_dir/something").is_dir());
             assert!(!path::Path::new("test_dir/something/ironvault").is_dir());
 
-            resolve_database_path();
+            create_vault_directory(None);
 
             assert!(path::Path::new("test_dir").is_dir());
             assert!(path::Path::new("test_dir/something").is_dir());
