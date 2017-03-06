@@ -14,5 +14,5 @@ extern crate uuid;
 pub mod encrypted_storage;
 pub mod keys;
 
-pub mod database;
+pub mod vault;
 pub mod record;

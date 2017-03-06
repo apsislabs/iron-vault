@@ -5,7 +5,7 @@ extern crate vault_core;
 
 use std::env;
 
-use vault_core::database::Vault;
+use vault_core::vault::Vault;
 use vault_core::record::Record;
 
 static PASSWORD: &'static str = "My voice is my password, verify me";
@@ -20,7 +20,6 @@ enum IronVaultAction {
 pub fn main() {
     let mut args = env::args();
     let action_arg = args.nth(1).unwrap_or("l".to_string());
-    println!("action_arg: {}", action_arg);
     let action = match action_arg.as_ref() {
         "c" => IronVaultAction::Create,
         "r" => IronVaultAction::Read,
