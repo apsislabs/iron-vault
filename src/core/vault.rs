@@ -3,6 +3,7 @@ use keys;
 use record;
 
 use std::io::prelude::*;
+use std::io;
 use std::env;
 use std::error;
 use std::fs;
@@ -22,23 +23,27 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    pub fn to_json(&self) -> String {
-        return serde_json::to_string(self).expect("It worked");
+    pub fn to_json(&self) -> Result<String, VaultError> {
+        return serde_json::to_string(self).map_err(VaultError::ConfigurationSerializationError);
     }
 
-    pub fn from_json(json: String) -> Configuration {
-        return serde_json::from_str(&json).unwrap();
+    pub fn from_json(json: String) -> Result<Configuration, VaultError> {
+        return serde_json::from_str(&json).map_err(VaultError::ConfigurationSerializationError);
     }
 
-    pub fn save_to<P: AsRef<path::Path>>(&self, path: P) {
-        let mut file = fs::File::create(path).expect("Created the configuration file.");
-        file.write_all(self.to_json().as_bytes()).expect("Wrote the configuration file.");
+    pub fn save_to<P: AsRef<path::Path>>(&self, path: P) -> Result<(), VaultError> {
+        let mut file = fs::File::create(path)?;
+        let json = self.to_json()?;
+
+        file.write_all(json.as_bytes())?;
+
+        return Ok(());
     }
 
-    pub fn from_file<P: AsRef<path::Path>>(path: P) -> Configuration {
-        let mut file = fs::File::open(path).expect("Opened the configuration file");
+    pub fn from_file<P: AsRef<path::Path>>(path: P) -> Result<Configuration, VaultError> {
+        let mut file = fs::File::open(path)?;
         let mut json = String::new();
-        file.read_to_string(&mut json).expect("Read the configuration file");
+        file.read_to_string(&mut json)?;
 
         return Configuration::from_json(json);
     }
@@ -63,7 +68,7 @@ impl Vault {
 
         // Write the vault configuration
         let config = try!(create_vault_configuration(&random));
-        config.save_to(config_path(&path));
+        config.save_to(config_path(&path)).expect("Should have saved the config");
 
         let password_key = keys::derive_key(algorithm, &config.salt, password).expect("Should derive the key");
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
@@ -87,9 +92,9 @@ impl Vault {
     pub fn open(password: String, path: Option<&str>) -> Result<Vault, VaultError> {
         let algorithm = &aead::CHACHA20_POLY1305;
 
-        let path = path::PathBuf::from(determine_database_path(path));
+        let path = path::PathBuf::from(determine_vault_path(path));
 
-        let config = Configuration::from_file(config_path(&path));
+        let config = Configuration::from_file(config_path(&path)).expect("Config should exist");
 
         let password_key = keys::derive_key(algorithm, &config.salt, password).expect("Should derive the key");
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
@@ -150,7 +155,7 @@ fn vault_path(base_path: &path::PathBuf, path: String) -> path::PathBuf {
 
 // TODO: rename determine_vault_path
 // TODO: error handling
-fn determine_database_path(path: Option<&str>) -> String {
+fn determine_vault_path(path: Option<&str>) -> String {
     // 1 - Explicit Override Resolution
     if path.is_some() {
         return String::from(path.unwrap());
@@ -168,7 +173,7 @@ fn determine_database_path(path: Option<&str>) -> String {
 }
 
 fn create_vault_directory(path: Option<&str>) -> Result<path::PathBuf, VaultError> {
-    let path = determine_database_path(path);
+    let path = determine_vault_path(path);
     let path = path::PathBuf::from(&path);
 
     if path.exists() { return Err(VaultError::VaultAlreadyExists); }
@@ -188,6 +193,8 @@ fn create_vault_configuration(random: &rand::SystemRandom) -> Result<Configurati
 #[derive(Debug)]
 pub enum VaultError {
     SaltError(keys::KeyError),
+    ConfigurationSerializationError(serde_json::Error),
+    ConfigurationFileError(io::Error),
     VaultAlreadyExists,
     VaultGenerationError
 }
@@ -195,9 +202,11 @@ pub enum VaultError {
 impl fmt::Display for VaultError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            VaultError::SaltError(ref err) => write!(f, "Salt error: {}", err),
+            VaultError::ConfigurationSerializationError(ref err) => write!(f, "Configuration serialization error: {}", err),
+            VaultError::ConfigurationFileError(ref err) => write!(f, "Configuration file error: {}", err),
             VaultError::VaultAlreadyExists => write!(f, "Vault already exists."),
             VaultError::VaultGenerationError => write!(f, "Vault generation error."),
-            VaultError::SaltError(ref err) => write!(f, "Salt error: {}", err),
         }
     }
 }
@@ -206,6 +215,8 @@ impl error::Error for VaultError {
     fn description(&self) -> &str {
         match *self {
             VaultError::SaltError(ref err) => err.description(),
+            VaultError::ConfigurationSerializationError(ref err) => err.description(),
+            VaultError::ConfigurationFileError(ref err) => err.description(),
             VaultError::VaultAlreadyExists => "Vault already exists.",
             VaultError::VaultGenerationError => "Vault generation error.",
         }
@@ -214,6 +225,8 @@ impl error::Error for VaultError {
     fn cause(&self) -> Option<&error::Error> {
         match *self {
             VaultError::SaltError(ref err) => Some(err),
+            VaultError::ConfigurationFileError(ref err) => Some(err),
+            VaultError::ConfigurationSerializationError(ref err) => Some(err),
             _ => None,
         }
     }
@@ -225,32 +238,44 @@ impl From<keys::KeyError> for VaultError {
     }
 }
 
+impl From<io::Error> for VaultError {
+    fn from(err: io::Error) -> VaultError {
+        VaultError::ConfigurationFileError(err)
+    }
+}
+
+impl From<serde_json::Error> for VaultError {
+    fn from(err: serde_json::Error) -> VaultError {
+        VaultError::ConfigurationSerializationError(err)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    describe! determine_database_path {
+    describe! determine_vault_path {
         before_each {
             env::remove_var(ENVIRONMENT_KEY);
         }
 
         it "uses environment variable before hardcoded path" {
             env::set_var(ENVIRONMENT_KEY, "test_dir/env/ironvault");
-            assert_eq!(determine_database_path(None), "test_dir/env/ironvault");
+            assert_eq!(determine_vault_path(None), "test_dir/env/ironvault");
         }
 
         it "uses explicit path if one is provided" {
-            assert_eq!(determine_database_path(Some("test_dir/explicit")),
+            assert_eq!(determine_vault_path(Some("test_dir/explicit")),
                                    "test_dir/explicit");
 
             env::set_var(ENVIRONMENT_KEY, "test_dir/env/ironvault");
 
-            assert_eq!(determine_database_path(Some("test_dir/explicit")),
+            assert_eq!(determine_vault_path(Some("test_dir/explicit")),
                                    "test_dir/explicit");
         }
 
         it "uses the hardcoded path if no other form is available" {
-            assert!(determine_database_path(None).ends_with("/.ironvault/"));
+            assert!(determine_vault_path(None).ends_with("/.ironvault/"));
         }
     }
 
