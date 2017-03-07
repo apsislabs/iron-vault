@@ -12,6 +12,7 @@ use std::fs;
 use std::fmt;
 use std::path;
 use std::vec::Vec;
+use std::collections::HashMap;
 use ring::aead;
 use ring::rand;
 
@@ -29,7 +30,8 @@ pub struct Vault {
     _configuration: Configuration,
     record_storage: EncryptedStorage,
     _key_storage: EncryptedStorage,
-    records: Vec<record::Record>
+    // TODO: UUIDSTRING
+    records: HashMap<String, record::Record>
 }
 
 impl Vault {
@@ -51,7 +53,7 @@ impl Vault {
         encryption_key_storage.write(&encryption_key)?;
 
         // Generate and write the records
-        let records = Vec::new();
+        let records = HashMap::new();
         let record_storage = EncryptedStorage::new(storage_path(&path), encryption_key.to_vec());
         record_storage.write_object(&records)?;
 
@@ -92,22 +94,23 @@ impl Vault {
     }
 
     pub fn add_record(&mut self, record: record::Record) -> Result<(), VaultError> {
-        self.records.push(record);
+        self.records.insert(record.uuid.clone(), record);
         self.record_storage.write_object(&self.records)?;
 
         return Ok(());
     }
 
-    pub fn fetch_records(&self) -> &Vec<record::Record> {
-        return &self.records;
+    pub fn fetch_records(&self) -> Vec<record::Record> {
+        // Oh, my lord. The cloned() in here is probably problematic (eventually).
+        return self.records.values().cloned().collect();
     }
 
     pub fn get_records_by_name(&self, record_name: String) -> Vec<&record::Record> {
-        return self.records.iter().filter(|record| record.name == record_name).collect();
+        return self.records.values().filter(|record| record.name == record_name).collect();
     }
 
     pub fn get_record_by_uuid(&self, record_uuid: String) -> Option<&record::Record> {
-        return self.records.iter().find(|record| record.uuid == record_uuid);
+        return self.records.get(&record_uuid);
     }
 }
 

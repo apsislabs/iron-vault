@@ -21,6 +21,7 @@ pub struct Record {
     pub uuid: String,
     pub name: String,
     pub kind: RecordKind,
+    // TODO: UUIDSTRING
     pub entries: HashMap<String, String>,
 }
 
