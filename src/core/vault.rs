@@ -1,10 +1,10 @@
 use storage::Storage;
 use storage::EncryptedStorage;
+use storage::PlaintextStorage;
 use storage;
 use keys;
 use record;
 
-use std::io::prelude::*;
 use std::io;
 use std::env;
 use std::error;
@@ -22,33 +22,6 @@ static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Configuration {
     salt: Vec<u8>,
-}
-
-impl Configuration {
-    pub fn to_json(&self) -> Result<String, VaultError> {
-        return serde_json::to_string(self).map_err(VaultError::ConfigurationSerializationError);
-    }
-
-    pub fn from_json(json: String) -> Result<Configuration, VaultError> {
-        return serde_json::from_str(&json).map_err(VaultError::ConfigurationSerializationError);
-    }
-
-    pub fn save_to<P: AsRef<path::Path>>(&self, path: P) -> Result<(), VaultError> {
-        let mut file = fs::File::create(path)?;
-        let json = self.to_json()?;
-
-        file.write_all(json.as_bytes())?;
-
-        return Ok(());
-    }
-
-    pub fn from_file<P: AsRef<path::Path>>(path: P) -> Result<Configuration, VaultError> {
-        let mut file = fs::File::open(path)?;
-        let mut json = String::new();
-        file.read_to_string(&mut json)?;
-
-        return Configuration::from_json(json);
-    }
 }
 
 pub struct Vault {
@@ -70,7 +43,8 @@ impl Vault {
 
         // Write the vault configuration
         let config = create_vault_configuration(&random)?;
-        config.save_to(config_path(&path))?;
+        let config_storage = PlaintextStorage::new(config_path(&path));
+        config_storage.write_object(&config)?;
 
         let password_key = keys::derive_key(algorithm, &config.salt, password)?;
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
@@ -79,8 +53,9 @@ impl Vault {
 
         let records = Vec::new();
         let record_storage = EncryptedStorage::new(storage_path(&path), encryption_key.to_vec());
-        let json = serde_json::to_string(&records)?;
-        record_storage.write(json.as_bytes())?;
+        // let json = serde_json::to_string(&records)?;
+        // record_storage.write(json.as_bytes())?;
+        record_storage.write_object(&records)?;
 
         return Ok(Vault {
             path: path,
@@ -96,7 +71,8 @@ impl Vault {
 
         let path = path::PathBuf::from(determine_vault_path(path));
 
-        let config = Configuration::from_file(config_path(&path))?;
+        let config_storage = PlaintextStorage::new(config_path(&path));
+        let config: Configuration = config_storage.read_object()?;
 
         let password_key = keys::derive_key(algorithm, &config.salt, password)?;
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
@@ -118,10 +94,7 @@ impl Vault {
 
     pub fn add_record(&mut self, record: record::Record) {
         self.records.push(record);
-
-        // Write new record
-        let json = serde_json::to_string(&self.records).unwrap();
-        &self.record_storage.write_string(&json).expect("Should have written record_storage properly");
+        self.record_storage.write_object(&self.records).unwrap();
     }
 
     pub fn fetch_records(&self) -> &Vec<record::Record> {
@@ -155,7 +128,6 @@ fn vault_path(base_path: &path::PathBuf, path: String) -> path::PathBuf {
     return vault_path;
 }
 
-// TODO: rename determine_vault_path
 // TODO: error handling
 fn determine_vault_path(path: Option<&str>) -> String {
     // 1 - Explicit Override Resolution
@@ -193,10 +165,9 @@ fn create_vault_configuration(random: &rand::SystemRandom) -> Result<Configurati
 }
 
 #[derive(Debug)]
-// TODO Code Generation for these errors
+// TODO Errors are annoying as crap! Setup some kind of code generation for these.
 pub enum VaultError {
     KeyError(keys::KeyError),
-    ConfigurationSerializationError(serde_json::Error),
     ConfigurationFileError(io::Error),
     VaultStorageError(storage::StorageError),
     VaultAlreadyExists,
@@ -207,7 +178,6 @@ impl fmt::Display for VaultError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             VaultError::KeyError(ref err) => write!(f, "Salt error: {}", err),
-            VaultError::ConfigurationSerializationError(ref err) => write!(f, "Configuration serialization error: {}", err),
             VaultError::ConfigurationFileError(ref err) => write!(f, "Configuration file error: {}", err),
             VaultError::VaultStorageError(ref err) => write!(f, "Storage error: {}", err),
             VaultError::VaultAlreadyExists => write!(f, "Vault already exists."),
@@ -220,7 +190,6 @@ impl error::Error for VaultError {
     fn description(&self) -> &str {
         match *self {
             VaultError::KeyError(ref err) => err.description(),
-            VaultError::ConfigurationSerializationError(ref err) => err.description(),
             VaultError::ConfigurationFileError(ref err) => err.description(),
             VaultError::VaultStorageError(ref err) => err.description(),
             VaultError::VaultAlreadyExists => "Vault already exists.",
@@ -232,7 +201,6 @@ impl error::Error for VaultError {
         match *self {
             VaultError::KeyError(ref err) => Some(err),
             VaultError::ConfigurationFileError(ref err) => Some(err),
-            VaultError::ConfigurationSerializationError(ref err) => Some(err),
             VaultError::VaultStorageError(ref err) => Some(err),
             _ => None,
         }
@@ -248,12 +216,6 @@ impl From<keys::KeyError> for VaultError {
 impl From<io::Error> for VaultError {
     fn from(err: io::Error) -> VaultError {
         VaultError::ConfigurationFileError(err)
-    }
-}
-
-impl From<serde_json::Error> for VaultError {
-    fn from(err: serde_json::Error) -> VaultError {
-        VaultError::ConfigurationSerializationError(err)
     }
 }
 
