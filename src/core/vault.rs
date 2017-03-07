@@ -1,4 +1,5 @@
 use encrypted_storage::EncryptedStorage;
+use encrypted_storage;
 use keys;
 use record;
 
@@ -64,21 +65,21 @@ impl Vault {
         let algorithm = &aead::CHACHA20_POLY1305;
 
         // Fail if the directory exists
-        let path = try!(create_vault_directory(path));
+        let path = create_vault_directory(path)?;
 
         // Write the vault configuration
-        let config = try!(create_vault_configuration(&random));
-        config.save_to(config_path(&path)).expect("Should have saved the config");
+        let config = create_vault_configuration(&random)?;
+        config.save_to(config_path(&path))?;
 
-        let password_key = keys::derive_key(algorithm, &config.salt, password).expect("Should derive the key");
+        let password_key = keys::derive_key(algorithm, &config.salt, password)?;
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
-        let encryption_key = keys::generate_key(algorithm, &random).expect("Should generate new encryption key");
-        encryption_key_storage.write(&encryption_key).expect("Should write new encryption key");
+        let encryption_key = keys::generate_key(algorithm, &random)?;
+        encryption_key_storage.write(&encryption_key)?;
 
         let records = Vec::new();
         let record_storage = EncryptedStorage::new(storage_path(&path), encryption_key.to_vec());
-        let json = serde_json::to_string(&records).unwrap();
-        record_storage.write(json.as_bytes()).expect("Should write to storage");
+        let json = serde_json::to_string(&records)?;
+        record_storage.write(json.as_bytes())?;
 
         return Ok(Vault {
             path: path,
@@ -94,9 +95,9 @@ impl Vault {
 
         let path = path::PathBuf::from(determine_vault_path(path));
 
-        let config = Configuration::from_file(config_path(&path)).expect("Config should exist");
+        let config = Configuration::from_file(config_path(&path))?;
 
-        let password_key = keys::derive_key(algorithm, &config.salt, password).expect("Should derive the key");
+        let password_key = keys::derive_key(algorithm, &config.salt, password)?;
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
         let mut sealed_buffer: Vec<u8> = Vec::new();
         let encryption_key = encryption_key_storage.read(&mut sealed_buffer).expect("Should have opened DB correctly");
@@ -191,10 +192,12 @@ fn create_vault_configuration(random: &rand::SystemRandom) -> Result<Configurati
 }
 
 #[derive(Debug)]
+// TODO Code Generation for these errors
 pub enum VaultError {
-    SaltError(keys::KeyError),
+    KeyError(keys::KeyError),
     ConfigurationSerializationError(serde_json::Error),
     ConfigurationFileError(io::Error),
+    VaultStorageError(encrypted_storage::StorageError),
     VaultAlreadyExists,
     VaultGenerationError
 }
@@ -202,9 +205,10 @@ pub enum VaultError {
 impl fmt::Display for VaultError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            VaultError::SaltError(ref err) => write!(f, "Salt error: {}", err),
+            VaultError::KeyError(ref err) => write!(f, "Salt error: {}", err),
             VaultError::ConfigurationSerializationError(ref err) => write!(f, "Configuration serialization error: {}", err),
             VaultError::ConfigurationFileError(ref err) => write!(f, "Configuration file error: {}", err),
+            VaultError::VaultStorageError(ref err) => write!(f, "Storage error: {}", err),
             VaultError::VaultAlreadyExists => write!(f, "Vault already exists."),
             VaultError::VaultGenerationError => write!(f, "Vault generation error."),
         }
@@ -214,9 +218,10 @@ impl fmt::Display for VaultError {
 impl error::Error for VaultError {
     fn description(&self) -> &str {
         match *self {
-            VaultError::SaltError(ref err) => err.description(),
+            VaultError::KeyError(ref err) => err.description(),
             VaultError::ConfigurationSerializationError(ref err) => err.description(),
             VaultError::ConfigurationFileError(ref err) => err.description(),
+            VaultError::VaultStorageError(ref err) => err.description(),
             VaultError::VaultAlreadyExists => "Vault already exists.",
             VaultError::VaultGenerationError => "Vault generation error.",
         }
@@ -224,9 +229,10 @@ impl error::Error for VaultError {
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            VaultError::SaltError(ref err) => Some(err),
+            VaultError::KeyError(ref err) => Some(err),
             VaultError::ConfigurationFileError(ref err) => Some(err),
             VaultError::ConfigurationSerializationError(ref err) => Some(err),
+            VaultError::VaultStorageError(ref err) => Some(err),
             _ => None,
         }
     }
@@ -234,7 +240,7 @@ impl error::Error for VaultError {
 
 impl From<keys::KeyError> for VaultError {
     fn from(err: keys::KeyError) -> VaultError {
-        VaultError::SaltError(err)
+        VaultError::KeyError(err)
     }
 }
 
@@ -247,6 +253,12 @@ impl From<io::Error> for VaultError {
 impl From<serde_json::Error> for VaultError {
     fn from(err: serde_json::Error) -> VaultError {
         VaultError::ConfigurationSerializationError(err)
+    }
+}
+
+impl From<encrypted_storage::StorageError> for VaultError {
+    fn from(err: encrypted_storage::StorageError) -> VaultError {
+        VaultError::VaultStorageError(err)
     }
 }
 
