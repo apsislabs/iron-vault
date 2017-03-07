@@ -1,5 +1,6 @@
-use encrypted_storage::EncryptedStorage;
-use encrypted_storage;
+use storage::Storage;
+use storage::EncryptedStorage;
+use storage;
 use keys;
 use record;
 
@@ -197,7 +198,7 @@ pub enum VaultError {
     KeyError(keys::KeyError),
     ConfigurationSerializationError(serde_json::Error),
     ConfigurationFileError(io::Error),
-    VaultStorageError(encrypted_storage::StorageError),
+    VaultStorageError(storage::StorageError),
     VaultAlreadyExists,
     VaultGenerationError
 }
@@ -256,8 +257,8 @@ impl From<serde_json::Error> for VaultError {
     }
 }
 
-impl From<encrypted_storage::StorageError> for VaultError {
-    fn from(err: encrypted_storage::StorageError) -> VaultError {
+impl From<storage::StorageError> for VaultError {
+    fn from(err: storage::StorageError) -> VaultError {
         VaultError::VaultStorageError(err)
     }
 }

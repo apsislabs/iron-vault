@@ -9,6 +9,64 @@ use std::vec::Vec;
 use ring::aead;
 use ring::rand;
 use odds::vec::VecExt;
+use serde;
+use serde_json;
+
+pub trait Storage {
+    fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> Result<&'a [u8], StorageError>;
+
+    fn read_string(&self) -> Result<String, StorageError> {
+        let mut sealed_buffer: Vec<u8> = Vec::new();
+
+        let plaintext = self.read(&mut sealed_buffer)?;
+        return Ok(String::from_utf8(plaintext.to_vec())?);
+    }
+
+    fn read_object<T>(&self) -> Result<T, StorageError>
+        where T: serde::Deserialize
+    {
+        let json = self.read_string()?;
+
+        let object = serde_json::from_str(&json)?;
+
+        return Ok(object);
+    }
+
+    fn write(&self, buffer: &[u8]) -> Result<(), StorageError>;
+
+    fn write_string(&self, data: &String) -> Result<(), StorageError> {
+        return self.write(data.as_bytes());
+    }
+
+    fn write_object<T: ?Sized>(&self, object: &T) -> Result<(), StorageError>
+        where T: serde::Serialize
+    {
+        let json = serde_json::to_string(object)?;
+        return self.write_string(&json);
+    }
+}
+
+pub struct PlaintextStorage {
+    path: path::PathBuf
+}
+
+impl PlaintextStorage {
+    pub fn new(path: path::PathBuf) -> PlaintextStorage {
+        PlaintextStorage {
+            path: path,
+        }
+    }
+}
+
+impl Storage for PlaintextStorage {
+    fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> Result<&'a [u8], StorageError> {
+        return read_plaintext(&self.path, buffer);
+    }
+
+    fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
+        return write_plaintext(&self.path, buffer);
+    }
+}
 
 /// A reference to an encrypted file.
 ///
@@ -27,7 +85,7 @@ impl EncryptedStorage {
     /// # Examples
     /// ```rust,no_run
     /// use std::path::PathBuf;
-    /// use vault_core::encrypted_storage::EncryptedStorage;
+    /// use vault_core::storage::EncryptedStorage;
     ///
     /// let path         = PathBuf::from("test/database");
     /// let key: Vec<u8> = b"7b6300f7dc21c9fddeaa71f439d53b55".to_vec();
@@ -41,7 +99,9 @@ impl EncryptedStorage {
             algorithm: &aead::CHACHA20_POLY1305,
         }
     }
+}
 
+impl Storage for EncryptedStorage {
     /// Reads data from the encrypted storage using the CHACHA20_POLY1305 algorithm and the key for
     /// the current storage file.
     ///
@@ -55,15 +115,8 @@ impl EncryptedStorage {
     /// * `StorageError::DecryptionError` if there is a problem decrypting the
     /// contents of the file (i.e. the file is not long enough to read the nonce, or the key does not
     /// decrypt the file properly).
-    pub fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> Result<&'a [u8], StorageError> {
+    fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> Result<&'a [u8], StorageError> {
         return read_encrypted(&self.path, buffer, &self.key, &self.algorithm);
-    }
-
-    pub fn read_string(&self) -> Result<String, StorageError> {
-        let mut sealed_buffer: Vec<u8> = Vec::new();
-
-        let plaintext = self.read(&mut sealed_buffer)?;
-        return Ok(String::from_utf8(plaintext.to_vec())?);
     }
 
     /// Writes the given data to the encrypted storage using the CHACHA20_POLY1305 algorithm and the key for
@@ -81,12 +134,8 @@ impl EncryptedStorage {
     /// * `StorageError::EncryptionError` if there is a problem decrypting the
     /// contents of the file (i.e. the file is not long enough to read the nonce, or the key does not
     /// decrypt the file properly).
-    pub fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
+    fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
         return write_encrypted(&self.path, buffer, &self.key, &self.algorithm);
-    }
-
-    pub fn write_string(&self, data: &String) -> Result<(), StorageError> {
-        return self.write(data.as_bytes());
     }
 }
 
@@ -99,6 +148,7 @@ pub enum StorageError {
     EncryptionError,
     StringError(string::FromUtf8Error),
     FileError(io::Error),
+    SerializationError(serde_json::Error),
 }
 
 impl fmt::Display for StorageError {
@@ -127,6 +177,9 @@ impl fmt::Display for StorageError {
             StorageError::StringError(ref err) => {
                 write!(f, "There was an error processing the file: {}", err)
             }
+            StorageError::SerializationError(ref err) => {
+                write!(f, "There was an error processing the file: {}", err)
+            }
         }
     }
 }
@@ -145,6 +198,7 @@ impl error::Error for StorageError {
             StorageError::EncryptionError => "The plaintext data could not be encrypted.",
             StorageError::FileError(ref err) => err.description(),
             StorageError::StringError(ref err) => err.description(),
+            StorageError::SerializationError(ref err) => err.description(),
         }
     }
 
@@ -157,6 +211,7 @@ impl error::Error for StorageError {
             StorageError::EncryptionError => None,
             StorageError::FileError(ref err) => Some(err),
             StorageError::StringError(ref err) => Some(err),
+            StorageError::SerializationError(ref err) => Some(err),
         }
     }
 }
@@ -167,17 +222,42 @@ impl From<string::FromUtf8Error> for StorageError {
     }
 }
 
+impl From<serde_json::Error> for StorageError {
+    fn from(err: serde_json::Error) -> StorageError {
+        StorageError::SerializationError(err)
+    }
+}
+
+fn read_plaintext<'a, P: AsRef<path::Path>>(path: P,
+                                            buffer: &'a mut Vec<u8>)
+                                            -> Result<&'a [u8], StorageError> {
+    let mut f = try!(fs::File::open(path).map_err(StorageError::FileError));
+    buffer.clear();
+
+    f.read_to_end(buffer).map_err(StorageError::FileError)?;
+
+    return Ok(buffer);
+}
+
 fn read_encrypted<'a, P: AsRef<path::Path>>(path: P,
                                             buffer: &'a mut Vec<u8>,
                                             key: &[u8],
                                             algorithm: &'static aead::Algorithm)
                                             -> Result<&'a [u8], StorageError> {
-    let mut f = try!(fs::File::open(path).map_err(StorageError::FileError));
-
-    buffer.clear();
-    try!(f.read_to_end(buffer).map_err(StorageError::FileError));
+    read_plaintext(path, buffer)?;
 
     return open_data(buffer, key, algorithm);
+}
+
+fn write_plaintext<P: AsRef<path::Path>>(path: P,
+                                         buf: &[u8])
+                                         -> Result<(), StorageError> {
+
+    let mut f = try!(fs::File::create(path).map_err(StorageError::FileError));
+
+    try!(f.write_all(buf).map_err(StorageError::FileError));
+
+    return Ok(());
 }
 
 fn write_encrypted<P: AsRef<path::Path>>(path: P,
@@ -185,12 +265,10 @@ fn write_encrypted<P: AsRef<path::Path>>(path: P,
                                          key: &[u8],
                                          algorithm: &'static aead::Algorithm)
                                          -> Result<(), StorageError> {
-    let mut f = try!(fs::File::create(path).map_err(StorageError::FileError));
     let mut data = buf.to_vec();
 
     let ciphertext = try!(seal_data(&mut data, key, algorithm));
-
-    try!(f.write_all(ciphertext).map_err(StorageError::FileError));
+    try!(write_plaintext(path, ciphertext));
 
     return Ok(());
 }
@@ -277,9 +355,17 @@ fn append_tag_storage(plaintext: &mut Vec<u8>, algorithm: &'static aead::Algorit
     }
 }
 
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct TestStruct {
+        a: String,
+        b: String,
+        c: String,
+    }
 
     describe! new {
         before_each {
@@ -292,11 +378,50 @@ mod test {
         }
     }
 
+    describe! read_and_write_object {
+        before_each {
+            ensure_test_dir();
+            let key: &[u8] = b"7b6300f7dc21c9fddeaa71f439d53b55";
+            let _encrypted_storage = EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
+            let _plaintext_storage = PlaintextStorage::new(path::PathBuf::from("test_dir/plaintext"));
+
+            let _short_message = TestStruct {
+                a: "Short message".to_string(),
+                b: "Another message".to_string(),
+                c: "Very cool message".to_string(),
+            };
+        }
+
+        after_each {
+            remove_test_dir();
+        }
+
+        it "should be able to read and write the Test Struct (plaintext)" {
+            _plaintext_storage.write_object(&_short_message).unwrap();
+            let deserialized:TestStruct = _plaintext_storage.read_object().unwrap();
+
+            assert_eq!(deserialized.a, "Short message");
+            assert_eq!(deserialized.b, "Another message");
+            assert_eq!(deserialized.c, "Very cool message");
+        }
+
+        it "should be able to read and write the Test Struct (encrypted)" {
+            _encrypted_storage.write_object(&_short_message).unwrap();
+            let deserialized:TestStruct = _encrypted_storage.read_object().unwrap();
+
+            assert_eq!(deserialized.a, "Short message");
+            assert_eq!(deserialized.b, "Another message");
+            assert_eq!(deserialized.c, "Very cool message");
+        }
+
+    }
+
     describe! write_and_read {
         before_each {
             ensure_test_dir();
             let key: &[u8] = b"7b6300f7dc21c9fddeaa71f439d53b55";
-            let _storage = EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
+            let _encrypted_storage = EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
+            let _plaintext_storage = PlaintextStorage::new(path::PathBuf::from("test_dir/plaintext"));
             let _short_message = String::from("Short message");
         }
 
@@ -304,14 +429,20 @@ mod test {
             remove_test_dir();
         }
 
-        it "should write to a file" {
+        it "should write to a file (encrypted)" {
             assert_eq!(path::Path::new("test_dir/database").is_file(), false);
-            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+            _encrypted_storage.write(_short_message.as_bytes()).expect("The write should be successful");
             assert!(path::Path::new("test_dir/database").is_file());
         }
 
-        it "should write encrypted looking data to a file" {
-            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+        it "should write to file (plaintext)" {
+            assert_eq!(path::Path::new("test_dir/plaintext").is_file(), false);
+            _plaintext_storage.write(_short_message.as_bytes()).expect("The write should be successful");
+            assert!(path::Path::new("test_dir/plaintext").is_file());
+        }
+
+        it "should write encrypted looking data to a file (encrypted)" {
+            _encrypted_storage.write(_short_message.as_bytes()).expect("The write should be successful");
 
             let mut contents : Vec<u8> = Vec::new();
             let mut file = fs::File::open("test_dir/database").expect("File should exist and open properly");
@@ -321,18 +452,40 @@ mod test {
             assert_eq!(encrypted_contents.contains("Short message"), false);
         }
 
-        ignore "should write CHACHA20 POLY1305 data to a file" {
+        it "should write plaintext data to a file (plaintext)" {
+            _plaintext_storage.write(_short_message.as_bytes()).expect("The write should be successful");
+
+            let mut contents : Vec<u8> = Vec::new();
+            let mut file = fs::File::open("test_dir/plaintext").expect("File should exist and open properly");
+            file.read_to_end(&mut contents).expect("File should be read properly");
+            let contents = String::from_utf8_lossy(&contents);
+
+            assert_eq!(contents.contains("Short message"), true);
+        }
+
+        ignore "should write CHACHA20 POLY1305 data to a file (encrypted)" {
             // TODO: How to actually validate the encryption, without relying on code that we've written?
             // Third party tools? Other?
         }
 
-        it "should be able to read the encrypted file" {
-            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+        it "should be able to read the encrypted file (encrypted)" {
+            _encrypted_storage.write(_short_message.as_bytes()).expect("The write should be successful");
 
             // Read it back, convert it to a string and make sure it's equal
             let mut sealed_buffer: Vec<u8> = Vec::new();
 
-            let plaintext = _storage.read(&mut sealed_buffer).expect("The read should be successful");
+            let plaintext = _encrypted_storage.read(&mut sealed_buffer).expect("The read should be successful");
+
+            let plaintext = String::from_utf8_lossy(plaintext);
+            assert_eq!(plaintext, "Short message");
+        }
+
+        it "should be able to read the plaintext file (plaintext)" {
+            _plaintext_storage.write(_short_message.as_bytes()).expect("The write should be successful");
+
+            // Read it back, convert it to a string and make sure it's equal
+            let mut sealed_buffer: Vec<u8> = Vec::new();
+            let plaintext = _plaintext_storage.read(&mut sealed_buffer).expect("The read should be successful");
 
             let plaintext = String::from_utf8_lossy(plaintext);
             assert_eq!(plaintext, "Short message");
@@ -351,7 +504,7 @@ mod test {
         }
 
         it "should return an error the data was encrypted with a different key" {
-            _storage.write(_short_message.as_bytes()).expect("The write should be successful");
+            _encrypted_storage.write(_short_message.as_bytes()).expect("The write should be successful");
 
             let key: &[u8] = b"7b6300f7dc21c9fddeaa71f439d53b56"; // ending b55 => b56
             let storage = EncryptedStorage::new(path::PathBuf::from("test_dir/database"), key.to_vec());
