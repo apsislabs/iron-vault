@@ -14,7 +14,6 @@ use std::path;
 use std::vec::Vec;
 use ring::aead;
 use ring::rand;
-use serde_json;
 
 static ENVIRONMENT_KEY: &'static str = "IRONVAULT_DATABASE";
 static DEFAULT_DATABASE_PATH: &'static str = "/.ironvault/";
@@ -38,23 +37,22 @@ impl Vault {
         let random = rand::SystemRandom::new(); // TODO: Use a single random value
         let algorithm = &aead::CHACHA20_POLY1305;
 
-        // Fail if the directory exists
         let path = create_vault_directory(path)?;
 
-        // Write the vault configuration
+        // Generate and write the vault configuration
         let config = create_vault_configuration(&random)?;
         let config_storage = PlaintextStorage::new(config_path(&path));
         config_storage.write_object(&config)?;
 
+        // Generate and write the encryption key
         let password_key = keys::derive_key(algorithm, &config.salt, password)?;
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
         let encryption_key = keys::generate_key(algorithm, &random)?;
         encryption_key_storage.write(&encryption_key)?;
 
+        // Generate and write the records
         let records = Vec::new();
         let record_storage = EncryptedStorage::new(storage_path(&path), encryption_key.to_vec());
-        // let json = serde_json::to_string(&records)?;
-        // record_storage.write(json.as_bytes())?;
         record_storage.write_object(&records)?;
 
         return Ok(Vault {
@@ -68,20 +66,21 @@ impl Vault {
 
     pub fn open(password: String, path: Option<&str>) -> Result<Vault, VaultError> {
         let algorithm = &aead::CHACHA20_POLY1305;
+        let path = path::PathBuf::from(determine_vault_path(path)?);
 
-        let path = path::PathBuf::from(determine_vault_path(path));
-
+        // Read the configuration
         let config_storage = PlaintextStorage::new(config_path(&path));
         let config: Configuration = config_storage.read_object()?;
 
+        // Read the encryption_key
         let password_key = keys::derive_key(algorithm, &config.salt, password)?;
         let encryption_key_storage = EncryptedStorage::new(encrypted_key_path(&path), password_key);
-        let mut sealed_buffer: Vec<u8> = Vec::new();
-        let encryption_key = encryption_key_storage.read(&mut sealed_buffer).expect("Should have opened DB correctly");
+        let mut buffer: Vec<u8> = Vec::new();
+        let encryption_key = encryption_key_storage.read(&mut buffer)?;
 
+        // Read the records
         let record_storage = EncryptedStorage::new(storage_path(&path), encryption_key.to_vec());
-        let record_json = record_storage.read_string().expect("Should have read the json");
-        let records = serde_json::from_str(&record_json).expect("Should have deserialized from the json");
+        let records = record_storage.read_object()?;
 
         return Ok(Vault {
             path: path,
@@ -92,9 +91,11 @@ impl Vault {
         });
     }
 
-    pub fn add_record(&mut self, record: record::Record) {
+    pub fn add_record(&mut self, record: record::Record) -> Result<(), VaultError> {
         self.records.push(record);
-        self.record_storage.write_object(&self.records).unwrap();
+        self.record_storage.write_object(&self.records)?;
+
+        return Ok(());
     }
 
     pub fn fetch_records(&self) -> &Vec<record::Record> {
@@ -128,26 +129,25 @@ fn vault_path(base_path: &path::PathBuf, path: String) -> path::PathBuf {
     return vault_path;
 }
 
-// TODO: error handling
-fn determine_vault_path(path: Option<&str>) -> String {
+fn determine_vault_path(path: Option<&str>) -> Result<String, VaultError> {
     // 1 - Explicit Override Resolution
     if path.is_some() {
-        return String::from(path.unwrap());
+        return Ok(String::from(path.unwrap()));
     }
 
     // 2 - Environment Variable Resolution
     let environment_result = env::var(ENVIRONMENT_KEY);
     if environment_result.is_ok() {
-        return environment_result.unwrap();
+        return Ok(environment_result.unwrap());
     }
 
     // 3 - Hardcoded Resolution
-    let home_dir = env::home_dir().expect("Failed to find the home directory");
-    return format!("{}{}", home_dir.display(), DEFAULT_DATABASE_PATH);
+    let home_dir = env::home_dir().ok_or(VaultError::UnknownError)?;
+    return Ok(format!("{}{}", home_dir.display(), DEFAULT_DATABASE_PATH));
 }
 
 fn create_vault_directory(path: Option<&str>) -> Result<path::PathBuf, VaultError> {
-    let path = determine_vault_path(path);
+    let path = determine_vault_path(path)?;
     let path = path::PathBuf::from(&path);
 
     if path.exists() { return Err(VaultError::VaultAlreadyExists); }
@@ -171,7 +171,8 @@ pub enum VaultError {
     ConfigurationFileError(io::Error),
     VaultStorageError(storage::StorageError),
     VaultAlreadyExists,
-    VaultGenerationError
+    VaultGenerationError,
+    UnknownError
 }
 
 impl fmt::Display for VaultError {
@@ -182,6 +183,7 @@ impl fmt::Display for VaultError {
             VaultError::VaultStorageError(ref err) => write!(f, "Storage error: {}", err),
             VaultError::VaultAlreadyExists => write!(f, "Vault already exists."),
             VaultError::VaultGenerationError => write!(f, "Vault generation error."),
+            VaultError::UnknownError => write!(f, "An unknown error occured."),
         }
     }
 }
@@ -194,6 +196,7 @@ impl error::Error for VaultError {
             VaultError::VaultStorageError(ref err) => err.description(),
             VaultError::VaultAlreadyExists => "Vault already exists.",
             VaultError::VaultGenerationError => "Vault generation error.",
+            VaultError::UnknownError => "An unknown error occured.",
         }
     }
 
@@ -236,21 +239,21 @@ mod test {
 
         it "uses environment variable before hardcoded path" {
             env::set_var(ENVIRONMENT_KEY, "test_dir/env/ironvault");
-            assert_eq!(determine_vault_path(None), "test_dir/env/ironvault");
+            assert_eq!(determine_vault_path(None).unwrap(), "test_dir/env/ironvault");
         }
 
         it "uses explicit path if one is provided" {
-            assert_eq!(determine_vault_path(Some("test_dir/explicit")),
+            assert_eq!(determine_vault_path(Some("test_dir/explicit")).unwrap(),
                                    "test_dir/explicit");
 
             env::set_var(ENVIRONMENT_KEY, "test_dir/env/ironvault");
 
-            assert_eq!(determine_vault_path(Some("test_dir/explicit")),
+            assert_eq!(determine_vault_path(Some("test_dir/explicit")).unwrap(),
                                    "test_dir/explicit");
         }
 
         it "uses the hardcoded path if no other form is available" {
-            assert!(determine_vault_path(None).ends_with("/.ironvault/"));
+            assert!(determine_vault_path(None).unwrap().ends_with("/.ironvault/"));
         }
     }
 

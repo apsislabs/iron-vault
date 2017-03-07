@@ -47,7 +47,7 @@ pub fn main() {
             let password = format!("p@ssword{}", vault_size + 1);
             let record = Record::new_login(record_name, username, password);
 
-            vault.add_record(record.clone());
+            vault.add_record(record.clone()).expect("There was an error adding the record.");
 
             println!("Added new record: {:?}", record);
         }
