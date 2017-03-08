@@ -12,9 +12,21 @@ use odds::vec::VecExt;
 use serde;
 use serde_json;
 
+/// The `Storage` trait allows for reading and writing objects to a long-term storage format.
 pub trait Storage {
+    /// Reads data from the file represented by this Storage.
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason (i.e. it doesn't
+    /// exist, or the process doesn't have permission to open it.)
     fn read<'a>(&self, buffer: &'a mut Vec<u8>) -> Result<&'a [u8], StorageError>;
 
+    /// Read a string from the file represented by this Storage.
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason (i.e. it doesn't
+    /// exist, or the process doesn't have permission to open it.)
+    /// * `StorageError::StringError` if the file contents cannot be interpreted as a UTF-8 string.
     fn read_string(&self) -> Result<String, StorageError> {
         let mut sealed_buffer: Vec<u8> = Vec::new();
 
@@ -22,6 +34,15 @@ pub trait Storage {
         return Ok(String::from_utf8(plaintext.to_vec())?);
     }
 
+    /// Read a Serializable object from the file represented by this Storage. The data in the file
+    /// should be a JSON serialized version of the object.
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason (i.e. it doesn't
+    /// exist, or the process doesn't have permission to open it.)
+    /// * `StorageError::StringError` if the file contents cannot be interpreted as a UTF-8 string.
+    /// * `StorageError::SerializationError` if the file contents cannot be interpreted as a json
+    /// representation of the desired type.
     fn read_object<T>(&self) -> Result<T, StorageError>
         where T: serde::Deserialize
     {
@@ -32,12 +53,28 @@ pub trait Storage {
         return Ok(object);
     }
 
+    /// Writes the given data to file represented by this Storage.
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason (i.e. it doesn't
+    /// exist, or the process doesn't have permission to open it.)
     fn write(&self, buffer: &[u8]) -> Result<(), StorageError>;
 
+    /// Writes the given string to the file represented by this Storage.
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason (i.e. it doesn't
+    /// exist, or the process doesn't have permission to open it.)
     fn write_string(&self, data: &String) -> Result<(), StorageError> {
         return self.write(data.as_bytes());
     }
 
+    /// Writes a Serializable object to the file represented by this Storage.
+    ///
+    /// # Errors
+    /// * `StorageError::FileError` if the file cannot be opened for any reason (i.e. it doesn't
+    /// exist, or the process doesn't have permission to open it.)
+    /// * `StorageError::SerializationError` if the given object fails during Serialization.
     fn write_object<T: ?Sized>(&self, object: &T) -> Result<(), StorageError>
         where T: serde::Serialize
     {
@@ -46,11 +83,25 @@ pub trait Storage {
     }
 }
 
+/// A reference to a plaintext file.
+///
+/// An instance of `PlaintextStorage` can read or write bytes to the path it was initialized with.
+/// These files are written in plaintext.
 pub struct PlaintextStorage {
     path: path::PathBuf
 }
 
 impl PlaintextStorage {
+    /// Creates a new `PlaintextStorage` with the given path.
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use std::path::PathBuf;
+    /// use vault_core::storage::PlaintextStorage;
+    ///
+    /// let path = PathBuf::from("test/plaintext");
+    /// PlaintextStorage::new(path);
+    /// ```
     pub fn new(path: path::PathBuf) -> PlaintextStorage {
         PlaintextStorage {
             path: path,
