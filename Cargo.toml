@@ -12,8 +12,7 @@ name = "iv"
 path = "src/cli/cli.rs"
 
 [dependencies]
-ring = "0.7.1" # Used for core crypto
-odds = "0.2.25" # Used for Vector Extensions
+ring = "0.11"   # Used for core crypto
 stainless = "*" # Used for unit testing
 
 # Used for serializing database and configurations

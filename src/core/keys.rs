@@ -5,6 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::vec::Vec;
 use ring::aead;
 use ring::rand;
+use ring::digest;
 use ring::pbkdf2;
 
 // CONFIGURABLE
@@ -43,7 +44,7 @@ pub fn derive_key(algorithm: &'static aead::Algorithm, salt: &[u8], password: St
 
     // Derive the key using ring (thanks ring!)
     // CONFIGURABLE (key derivation algorith, PRF (HMAC_SHA256) for key derivation algorithm)
-    pbkdf2::derive(&pbkdf2::HMAC_SHA256, iterations(password.clone()), salt,
+    pbkdf2::derive(&digest::SHA256, iterations(password.clone()), salt,
                        password.as_bytes(), &mut derived_key);
 
     return Ok(derived_key);

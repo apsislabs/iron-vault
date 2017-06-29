@@ -29,7 +29,12 @@ Building everything can be run with `cargo build`.
 
 ### Development Dependencies
 
-* Rust (https://www.rust-lang.org/en-US/install.html)
+(Right now we require the nightly rust because we rely on `stainless` for unit tests. This is something we want to change to get back onto the stable build of rust)
+
+* Rustup (https://www.rustup.rs/)
+* Nightly rust:
+** `rustup install nightly`
+** `rustup default nightly`
 
 ### Building
 

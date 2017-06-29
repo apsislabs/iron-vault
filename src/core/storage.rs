@@ -8,7 +8,7 @@ use std::string;
 use std::vec::Vec;
 use ring::aead;
 use ring::rand;
-use odds::vec::VecExt;
+use ring::rand::SecureRandom;
 use serde;
 use serde_json;
 
