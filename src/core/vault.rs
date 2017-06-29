@@ -24,6 +24,21 @@ pub struct Configuration {
     salt: Vec<u8>,
 }
 
+/// A `Vault` is a container of `Records` that can be serialized and encrypted to a data store, and
+/// later decrypted and deserialized from that data store.
+///
+/// A vault requires a `password` to open the vault. This `password` is used to derive a key (the
+/// `master key`). The `master key` is then used to decrypt a file that contains the `storage key`.
+/// Finally, the `storage key` is used to encrypt the `Records` and any indexes and other Vault data
+/// that is serialized.
+///
+/// On disk a `Vault` is stored as a folder. Within that folder there are three files:
+/// * vaultdir/config which is a plaintext file that stores pubically knowable information about
+/// this vault (such as it's salt, encryption format, etc).
+/// * vaultdir/key which is an encrypted file that stores the `storage key`. This file is encrypted
+/// using the `master key` derived from the `password`.
+/// * vaultdir/storage which is an encrypted file that stores the `Records`. This file is encrypted
+/// using the `storage key` which is contained in the vaultdir/key file.
 pub struct Vault {
     pub path: path::PathBuf,
     // TODO (CONFIGURABLE): Use Configuration to change various parameters.
